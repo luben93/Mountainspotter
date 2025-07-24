@@ -43,7 +43,10 @@ A Kotlin Multiplatform Mobile app that uses GPS, compass, and elevation data to 
 
 ### Running
 - **Android**: Use Android Studio or `./gradlew :androidApp:installDebug`
-- **iOS**: Open iosApp in Xcode
+- **iOS**: Open iosApp/MountainSpotter.xcodeproj in Xcode
+
+### CI/CD
+The project includes automated GitHub Actions workflows for building and publishing both Android APK and iOS IPA files. See [CI-SETUP.md](CI-SETUP.md) for detailed information about the continuous integration setup.
 
 ## Technical Details
 
