@@ -19,6 +19,7 @@ import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
 import com.mountainspotter.android.ui.theme.MountainSpotterTheme
+import com.mountainspotter.android.viewmodel.AndroidMountainSpotterViewModel
 import com.mountainspotter.shared.model.VisiblePeak
 import com.mountainspotter.shared.platform.CompassService
 import com.mountainspotter.shared.platform.LocationService
@@ -40,13 +41,15 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val context = LocalContext.current
                     
-                    val viewModel: MountainSpotterViewModel = viewModel {
-                        MountainSpotterViewModel(
-                            locationService = LocationService(context),
-                            compassService = CompassService(context),
-                            permissionManager = PermissionManager(context),
-                            mountainRepository = MountainRepository(),
-                            calculationService = MountainCalculationService()
+                    val viewModel: AndroidMountainSpotterViewModel = viewModel {
+                        AndroidMountainSpotterViewModel(
+                            MountainSpotterViewModel(
+                                locationService = LocationService(context),
+                                compassService = CompassService(context),
+                                permissionManager = PermissionManager(context),
+                                mountainRepository = MountainRepository(),
+                                calculationService = MountainCalculationService()
+                            )
                         )
                     }
                     
@@ -75,7 +78,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MountainSpotterScreen(
-    viewModel: MountainSpotterViewModel,
+    viewModel: AndroidMountainSpotterViewModel,
     onRequestPermission: () -> Unit,
     hasLocationPermission: Boolean
 ) {

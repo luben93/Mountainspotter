@@ -11,6 +11,7 @@ import androidx.core.app.ActivityCompat
 import com.google.android.gms.location.*
 import com.mountainspotter.shared.model.Location
 import com.mountainspotter.shared.model.CompassData
+import android.annotation.SuppressLint
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -24,6 +25,7 @@ actual class LocationService(private val context: Context) {
     
     private var locationCallback: LocationCallback? = null
     
+    @SuppressLint("MissingPermission")
     actual fun startLocationUpdates(): Flow<Location?> = callbackFlow {
         if (!isLocationPermissionGranted()) {
             trySend(null)
@@ -71,6 +73,7 @@ actual class LocationService(private val context: Context) {
         }
     }
     
+    @SuppressLint("MissingPermission")
     actual suspend fun getCurrentLocation(): Location? = suspendCancellableCoroutine { continuation ->
         if (!isLocationPermissionGranted()) {
             continuation.resume(null)
