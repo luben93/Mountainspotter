@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalForeignApi::class)
+
 package com.mountainspotter.shared.platform
 
 import com.mountainspotter.shared.model.Location
@@ -9,10 +11,13 @@ import platform.CoreLocation.*
 import platform.Foundation.NSError
 import platform.UIKit.UIApplication
 import platform.UIKit.UIApplicationOpenSettingsURLString
-import platform.UIKit.NSURL
 import platform.CoreMotion.*
 import kotlinx.cinterop.*
+import platform.Foundation.NSOperationQueue.Companion.mainQueue
+import platform.Foundation.NSURL
+import platform.darwin.NSObject
 import kotlin.math.*
+import platform.CoreLocation.CLLocationCoordinate2D // Ensure this is present
 
 actual class LocationService {
     private val locationManager = CLLocationManager()
@@ -47,11 +52,12 @@ actual class LocationService {
         locationDelegate = null
     }
     
+    @OptIn(ExperimentalForeignApi::class)
     actual suspend fun getCurrentLocation(): Location? {
         return locationManager.location?.let { clLocation ->
             Location(
-                latitude = clLocation.coordinate.latitude,
-                longitude = clLocation.coordinate.longitude,
+                latitude = clLocation.coordinate.useContents { latitude },
+                longitude = clLocation.coordinate.useContents { longitude },
                 altitude = if (clLocation.altitude != -1.0) clLocation.altitude else null
             )
         }
@@ -79,8 +85,8 @@ actual class LocationService {
             locations.lastOrNull()?.let { location ->
                 onLocationUpdate(
                     Location(
-                        latitude = location.coordinate.latitude,
-                        longitude = location.coordinate.longitude,
+                        latitude = location.coordinate.useContents { latitude },
+                        longitude = location.coordinate.useContents { longitude },
                         altitude = if (location.altitude != -1.0) location.altitude else null
                     )
                 )
@@ -104,16 +110,15 @@ actual class CompassService {
         motionManager.deviceMotionUpdateInterval = 0.1 // 10 Hz
         
         motionManager.startDeviceMotionUpdatesToQueue(
-            queue = null // Use main queue
+            queue = mainQueue // Use main queue
         ) { motion, error ->
             motion?.let { deviceMotion ->
                 val attitude = deviceMotion.attitude
-                
-                // Convert from radians to degrees
-                val azimuth = Math.toDegrees(-attitude.yaw).toFloat()
-                val pitch = Math.toDegrees(attitude.pitch).toFloat()
-                val roll = Math.toDegrees(attitude.roll).toFloat()
-                
+
+                val azimuth = (-attitude.yaw * 180.0 / PI).toFloat()
+                val pitch = (attitude.pitch * 180.0 / PI).toFloat()
+                val roll = (attitude.roll * 180.0 / PI).toFloat()
+
                 trySend(
                     CompassData(
                         azimuth = if (azimuth < 0) azimuth + 360f else azimuth,
@@ -121,6 +126,19 @@ actual class CompassService {
                         roll = roll
                     )
                 )
+
+                // Convert from radians to degrees
+//                val azimuth = Math.toDegrees(-attitude.yaw).toFloat()
+//                val pitch = Math.toDegrees(attitude.pitch).toFloat()
+//                val roll = Math.toDegrees(attitude.roll).toFloat()
+//
+//                trySend(
+//                    CompassData(
+//                        azimuth = if (azimuth < 0) azimuth + 360f else azimuth,
+//                        pitch = pitch,
+//                        roll = roll
+//                    )
+//                )
             }
         }
         
