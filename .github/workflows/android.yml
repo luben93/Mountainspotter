@@ -38,14 +38,24 @@ jobs:
       run: chmod +x gradlew
       
     - name: Build with Gradle
-      run: ./gradlew build --stacktrace
+      run: ./gradlew build --stacktrace --no-daemon
       
     - name: Build Debug APK
-      run: ./gradlew :androidApp:assembleDebug --stacktrace
+      run: ./gradlew :androidApp:assembleDebug --stacktrace --no-daemon
       
-    - name: Upload APK
+    - name: Build Release APK
+      run: ./gradlew :androidApp:assembleRelease --stacktrace --no-daemon
+      
+    - name: Upload Debug APK
       uses: actions/upload-artifact@v4
       with:
         name: mountainspotter-debug.apk
         path: androidApp/build/outputs/apk/debug/androidApp-debug.apk
+        retention-days: 30
+        
+    - name: Upload Release APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: mountainspotter-release.apk
+        path: androidApp/build/outputs/apk/release/androidApp-release.apk
         retention-days: 30

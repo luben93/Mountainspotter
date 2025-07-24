@@ -34,23 +34,35 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
       
-    - name: Build Kotlin Multiplatform shared framework
-      run: ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64 --stacktrace
+    - name: Build Kotlin Multiplatform shared frameworks
+      run: |
+        ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64 --stacktrace
+        ./gradlew :shared:linkDebugFrameworkIosArm64 --stacktrace
+        ./gradlew :shared:linkDebugFrameworkIosX64 --stacktrace
       
     - name: Setup Xcode
       uses: maxim-lobanov/setup-xcode@v1
       with:
         xcode-version: latest-stable
         
-    - name: Build iOS App
+    - name: Build iOS App for Simulator
       run: |
         cd iosApp
-        xcodebuild -project MountainSpotterApp.xcodeproj -scheme MountainSpotterApp -configuration Debug -destination 'generic/platform=iOS Simulator' -archivePath MountainSpotterApp.xcarchive archive
+        xcodebuild -project MountainSpotterApp.xcodeproj -scheme MountainSpotterApp -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' build
+        
+    - name: Build iOS App for Device (Archive)
+      run: |
+        cd iosApp
+        xcodebuild -project MountainSpotterApp.xcodeproj -scheme MountainSpotterApp -configuration Release -destination 'generic/platform=iOS' -archivePath MountainSpotterApp.xcarchive archive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
         
     - name: Export IPA
       run: |
         cd iosApp
-        xcodebuild -exportArchive -archivePath MountainSpotterApp.xcarchive -exportPath . -exportOptionsPlist ExportOptions.plist || echo "Export failed, but build succeeded"
+        if [ -d "MountainSpotterApp.xcarchive" ]; then
+          xcodebuild -exportArchive -archivePath MountainSpotterApp.xcarchive -exportPath . -exportOptionsPlist ExportOptions.plist || echo "Export failed, but archive was created successfully"
+        else
+          echo "No archive found, skipping IPA export"
+        fi
         
     - name: Upload iOS build artifacts
       uses: actions/upload-artifact@v4
@@ -59,4 +71,7 @@ jobs:
         path: |
           iosApp/MountainSpotterApp.xcarchive
           iosApp/*.ipa
+          shared/build/bin/iosSimulatorArm64/debugFramework/shared.framework
+          shared/build/bin/iosArm64/debugFramework/shared.framework
+          shared/build/bin/iosX64/debugFramework/shared.framework
         retention-days: 30
