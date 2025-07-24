@@ -1,0 +1,64 @@
+name: CI Test and Diagnostics
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-structure:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Test project structure
+      run: |
+        echo "Testing project structure..."
+        ./test-ci-setup.sh
+        
+    - name: Show Gradle version
+      run: ./gradlew --version
+      
+    - name: List Gradle tasks
+      run: ./gradlew tasks --all | head -50
+      
+    - name: Check Android SDK
+      run: |
+        echo "ANDROID_HOME: $ANDROID_HOME"
+        ls -la $ANDROID_HOME/ || echo "Android SDK not found"
+        
+    - name: Test basic Gradle configuration
+      run: |
+        echo "Testing Gradle configuration..."
+        ./gradlew help --stacktrace || echo "Gradle configuration failed"
+
+  test-dependencies:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+      
+    - name: Test network connectivity
+      run: |
+        echo "Testing network connectivity..."
+        curl -I https://repo1.maven.org/maven2/ || echo "Maven Central unreachable"
+        curl -I https://dl.google.com/dl/android/maven2/ || echo "Google Maven unreachable"
+        curl -I https://plugins.gradle.org/m2/ || echo "Gradle Plugin Portal unreachable"
+        
+    - name: Test Gradle dependency resolution
+      run: |
+        echo "Testing dependency resolution..."
+        ./gradlew :shared:dependencies --configuration commonMainApi | head -20 || echo "Dependency resolution failed"

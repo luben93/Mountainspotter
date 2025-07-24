@@ -36,14 +36,24 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
       
-    - name: Build Android APK
-      run: ./gradlew :androidApp:assembleDebug
+    - name: Build debug APK
+      run: ./gradlew :androidApp:assembleDebug --stacktrace
       
-    - name: Upload Android APK
+    - name: Build release APK
+      run: ./gradlew :androidApp:assembleRelease --stacktrace
+      
+    - name: Upload Debug APK
       uses: actions/upload-artifact@v4
       with:
-        name: android-apk
+        name: android-apk-debug
         path: androidApp/build/outputs/apk/debug/*.apk
+        retention-days: 30
+        
+    - name: Upload Release APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-apk-release
+        path: androidApp/build/outputs/apk/release/*.apk
         retention-days: 30
 
   build-ios:
@@ -78,19 +88,34 @@ jobs:
       run: chmod +x gradlew
       
     - name: Build iOS Framework
-      run: ./gradlew :shared:linkDebugFrameworkIosX64
-      
+      run: |
+        ./gradlew :shared:linkDebugFrameworkIosX64 --stacktrace
+        ./gradlew :shared:linkReleaseFrameworkIosX64 --stacktrace
+        ./gradlew :shared:linkDebugFrameworkIosArm64 --stacktrace
+        ./gradlew :shared:linkReleaseFrameworkIosArm64 --stacktrace
+        
     - name: Build iOS App
       run: |
         cd iosApp
-        xcodebuild -workspace MountainSpotter.xcworkspace -scheme MountainSpotter -configuration Debug -destination 'generic/platform=iOS' -archivePath MountainSpotter.xcarchive archive
+        # Build the shared framework first via Gradle
+        cd ..
+        ./gradlew :shared:linkDebugFrameworkIosX64 --stacktrace
+        ./gradlew :shared:linkReleaseFrameworkIosArm64 --stacktrace
+        
+        # Now build the iOS app
+        cd iosApp
+        xcodebuild -project MountainSpotter.xcodeproj -scheme MountainSpotter -configuration Release -destination 'generic/platform=iOS' -archivePath MountainSpotter.xcarchive archive DEVELOPMENT_TEAM="" CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+        
+        # Create IPA
         xcodebuild -exportArchive -archivePath MountainSpotter.xcarchive -exportPath . -exportOptionsPlist ExportOptions.plist
       
     - name: Upload iOS IPA
       uses: actions/upload-artifact@v4
       with:
         name: ios-ipa
-        path: iosApp/*.ipa
+        path: |
+          iosApp/*.ipa
+          iosApp/MountainSpotter.xcarchive
         retention-days: 30
 
   publish:
@@ -99,11 +124,17 @@ jobs:
     if: github.ref == 'refs/heads/main'
     
     steps:
-    - name: Download Android APK
+    - name: Download Android Debug APK
       uses: actions/download-artifact@v4
       with:
-        name: android-apk
-        path: ./artifacts/android/
+        name: android-apk-debug
+        path: ./artifacts/android/debug/
+        
+    - name: Download Android Release APK  
+      uses: actions/download-artifact@v4
+      with:
+        name: android-apk-release
+        path: ./artifacts/android/release/
         
     - name: Download iOS IPA
       uses: actions/download-artifact@v4
@@ -116,7 +147,19 @@ jobs:
       if: startsWith(github.ref, 'refs/tags/')
       with:
         files: |
-          ./artifacts/android/*.apk
+          ./artifacts/android/release/*.apk
           ./artifacts/ios/*.ipa
+        body: |
+          ## Mountain Spotter Release
+          
+          This release includes:
+          - Android APK (release build)
+          - iOS IPA (when properly configured)
+          
+          ### Android Installation
+          Download and install the APK file on your Android device.
+          
+          ### iOS Installation  
+          iOS IPA requires proper code signing and distribution setup.
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
