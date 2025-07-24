@@ -59,3 +59,4 @@ jobs:
         name: mountainspotter-release.apk
         path: androidApp/build/outputs/apk/release/androidApp-release.apk
         retention-days: 30
+

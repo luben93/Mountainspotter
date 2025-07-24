@@ -40,6 +40,10 @@ android {
     buildFeatures {
         compose = true
     }
+    
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.11"
+    }
 }
 
 dependencies {
@@ -56,6 +60,7 @@ dependencies {
     // Core Android
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
+    implementation("androidx.appcompat:appcompat:1.6.1")
     
     // Location Services
     implementation("com.google.android.gms:play-services-location:21.0.1")

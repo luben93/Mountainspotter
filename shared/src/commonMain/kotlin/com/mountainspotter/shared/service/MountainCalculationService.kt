@@ -13,10 +13,10 @@ class MountainCalculationService {
     fun calculateDistance(from: Location, to: Location): Double {
         val earthRadius = 6371.0 // Earth's radius in kilometers
         
-        val lat1Rad = Math.toRadians(from.latitude)
-        val lat2Rad = Math.toRadians(to.latitude)
-        val deltaLatRad = Math.toRadians(to.latitude - from.latitude)
-        val deltaLonRad = Math.toRadians(to.longitude - from.longitude)
+        val lat1Rad = toRadians(from.latitude)
+        val lat2Rad = toRadians(to.latitude)
+        val deltaLatRad = toRadians(to.latitude - from.latitude)
+        val deltaLonRad = toRadians(to.longitude - from.longitude)
         
         val a = sin(deltaLatRad / 2).pow(2) +
                 cos(lat1Rad) * cos(lat2Rad) *
@@ -31,15 +31,15 @@ class MountainCalculationService {
      * Calculate bearing from one location to another
      */
     fun calculateBearing(from: Location, to: Location): Double {
-        val lat1Rad = Math.toRadians(from.latitude)
-        val lat2Rad = Math.toRadians(to.latitude)
-        val deltaLonRad = Math.toRadians(to.longitude - from.longitude)
+        val lat1Rad = toRadians(from.latitude)
+        val lat2Rad = toRadians(to.latitude)
+        val deltaLonRad = toRadians(to.longitude - from.longitude)
         
         val y = sin(deltaLonRad) * cos(lat2Rad)
         val x = cos(lat1Rad) * sin(lat2Rad) - sin(lat1Rad) * cos(lat2Rad) * cos(deltaLonRad)
         
         val bearingRad = atan2(y, x)
-        return (Math.toDegrees(bearingRad) + 360) % 360
+        return (toDegrees(bearingRad) + 360) % 360
     }
     
     /**
@@ -59,7 +59,7 @@ class MountainCalculationService {
         val curvatureCorrection = (distanceMeters * distanceMeters) / (2 * earthRadius)
         val adjustedHeightDifference = heightDifference - curvatureCorrection
         
-        return Math.toDegrees(atan(adjustedHeightDifference / (distanceMeters)))
+        return toDegrees(atan(adjustedHeightDifference / (distanceMeters)))
     }
     
     /**
@@ -108,5 +108,13 @@ class MountainCalculationService {
                 )
             } else null
         }.sortedBy { it.distance }
+    }
+    
+    private fun toRadians(degrees: Double): Double {
+        return degrees * PI / 180.0
+    }
+
+    private fun toDegrees(radians: Double): Double {
+        return radians * 180.0 / PI
     }
 }
