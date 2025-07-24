@@ -36,9 +36,21 @@ jobs:
       
     - name: Build Kotlin Multiplatform shared frameworks
       run: |
+        # Build debug frameworks for all iOS targets
         ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64 --stacktrace --no-daemon
         ./gradlew :shared:linkDebugFrameworkIosArm64 --stacktrace --no-daemon
         ./gradlew :shared:linkDebugFrameworkIosX64 --stacktrace --no-daemon
+        
+        # Build release frameworks for device archiving
+        ./gradlew :shared:linkReleaseFrameworkIosArm64 --stacktrace --no-daemon
+        
+        # Create the xcode-frameworks directory structure
+        mkdir -p shared/build/xcode-frameworks
+        
+        # Verify frameworks were built
+        echo "Checking built frameworks:"
+        find shared/build -name "*.framework" -type d || echo "No frameworks found in expected location"
+        find . -name "shared.framework" -type d || echo "No shared.framework found anywhere"
       
     - name: Setup Xcode
       uses: maxim-lobanov/setup-xcode@v1
@@ -48,18 +60,50 @@ jobs:
     - name: Build iOS App for Simulator
       run: |
         cd iosApp
-        xcodebuild -project MountainSpotterApp.xcodeproj -scheme MountainSpotterApp -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' build || echo "Simulator build failed, but continuing..."
+        echo "Building for iOS Simulator..."
+        xcodebuild -project MountainSpotterApp.xcodeproj \
+          -scheme MountainSpotterApp \
+          -configuration Debug \
+          -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
+          build
         
     - name: Build iOS App for Device (Archive)
       run: |
         cd iosApp
-        xcodebuild -project MountainSpotterApp.xcodeproj -scheme MountainSpotterApp -configuration Release -destination 'generic/platform=iOS' -archivePath MountainSpotterApp.xcarchive archive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO || echo "Device archive failed, but continuing..."
+        echo "Creating iOS Archive..."
+        xcodebuild -project MountainSpotterApp.xcodeproj \
+          -scheme MountainSpotterApp \
+          -configuration Release \
+          -destination 'generic/platform=iOS' \
+          -archivePath MountainSpotterApp.xcarchive \
+          archive \
+          CODE_SIGN_IDENTITY="" \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGNING_ALLOWED=NO \
+          AD_HOC_CODE_SIGNING_ALLOWED=NO
         
     - name: Export IPA
       run: |
         cd iosApp
         if [ -d "MountainSpotterApp.xcarchive" ]; then
-          xcodebuild -exportArchive -archivePath MountainSpotterApp.xcarchive -exportPath . -exportOptionsPlist ExportOptions.plist || echo "Export failed, but archive was created successfully"
+          echo "Archive found, attempting to export IPA..."
+          xcodebuild -exportArchive \
+            -archivePath MountainSpotterApp.xcarchive \
+            -exportPath ./export \
+            -exportOptionsPlist ExportOptions.plist \
+            -allowProvisioningUpdates || echo "IPA export failed - this is expected without proper signing certificates"
+          
+          # List what was created
+          echo "Contents of export directory:"
+          ls -la ./export/ || echo "No export directory created"
+          
+          # Create a basic IPA structure if export failed but archive succeeded
+          if [ ! -f "./export/*.ipa" ] && [ -d "MountainSpotterApp.xcarchive" ]; then
+            echo "Creating basic IPA structure from archive..."
+            mkdir -p ./export
+            cp -r MountainSpotterApp.xcarchive ./export/
+            echo "Archive copied to export directory for download"
+          fi
         else
           echo "No archive found, skipping IPA export"
         fi
@@ -70,6 +114,7 @@ jobs:
         name: mountainspotter-ios-build
         path: |
           iosApp/MountainSpotterApp.xcarchive
-          iosApp/*.ipa
+          iosApp/export/*.ipa
+          iosApp/export/MountainSpotterApp.xcarchive
         retention-days: 30
         if-no-files-found: warn

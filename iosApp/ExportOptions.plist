@@ -18,5 +18,9 @@
     <false/>
     <key>uploadSymbols</key>
     <false/>
+    <key>signingCertificate</key>
+    <string>-</string>
+    <key>provisioningProfiles</key>
+    <dict/>
 </dict>
 </plist>

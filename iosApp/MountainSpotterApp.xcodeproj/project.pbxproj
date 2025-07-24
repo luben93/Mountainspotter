@@ -184,7 +184,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd \"$SRCROOT/..\"\n./gradlew :shared:linkDebugFrameworkIosSimulatorArm64\n";
+			shellScript = "cd \"$SRCROOT/..\"\n\n# Determine the appropriate framework to build based on the target destination\nif [[ \"$PLATFORM_NAME\" == \"iphoneos\" ]]; then\n    if [[ \"$CONFIGURATION\" == \"Release\" ]]; then\n        ./gradlew :shared:linkReleaseFrameworkIosArm64\n    else\n        ./gradlew :shared:linkDebugFrameworkIosArm64\n    fi\nelif [[ \"$PLATFORM_NAME\" == \"iphonesimulator\" ]]; then\n    if [[ \"$ARCHS\" == *\"arm64\"* ]]; then\n        if [[ \"$CONFIGURATION\" == \"Release\" ]]; then\n            ./gradlew :shared:linkReleaseFrameworkIosSimulatorArm64\n        else\n            ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64\n        fi\n    else\n        if [[ \"$CONFIGURATION\" == \"Release\" ]]; then\n            ./gradlew :shared:linkReleaseFrameworkIosX64\n        else\n            ./gradlew :shared:linkDebugFrameworkIosX64\n        fi\n    fi\nelse\n    echo \"Unknown platform: $PLATFORM_NAME\"\n    exit 1\nfi\n\n# Create the xcode-frameworks directory structure that Xcode expects\nmkdir -p \"shared/build/xcode-frameworks\"\n\n# Copy the built framework to the expected location\nif [[ \"$CONFIGURATION\" == \"Release\" ]]; then\n    if [[ \"$PLATFORM_NAME\" == \"iphoneos\" ]]; then\n        cp -R \"shared/build/bin/iosArm64/releaseFramework/shared.framework\" \"shared/build/xcode-frameworks/\"\n    elif [[ \"$PLATFORM_NAME\" == \"iphonesimulator\" && \"$ARCHS\" == *\"arm64\"* ]]; then\n        cp -R \"shared/build/bin/iosSimulatorArm64/releaseFramework/shared.framework\" \"shared/build/xcode-frameworks/\"\n    elif [[ \"$PLATFORM_NAME\" == \"iphonesimulator\" ]]; then\n        cp -R \"shared/build/bin/iosX64/releaseFramework/shared.framework\" \"shared/build/xcode-frameworks/\"\n    fi\nelse\n    if [[ \"$PLATFORM_NAME\" == \"iphoneos\" ]]; then\n        cp -R \"shared/build/bin/iosArm64/debugFramework/shared.framework\" \"shared/build/xcode-frameworks/\"\n    elif [[ \"$PLATFORM_NAME\" == \"iphonesimulator\" && \"$ARCHS\" == *\"arm64\"* ]]; then\n        cp -R \"shared/build/bin/iosSimulatorArm64/debugFramework/shared.framework\" \"shared/build/xcode-frameworks/\"\n    elif [[ \"$PLATFORM_NAME\" == \"iphonesimulator\" ]]; then\n        cp -R \"shared/build/bin/iosX64/debugFramework/shared.framework\" \"shared/build/xcode-frameworks/\"\n    fi\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -322,6 +322,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = NO;
 				DEVELOPMENT_ASSET_PATHS = "\"MountainSpotterApp/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
@@ -353,6 +355,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = NO;
 				DEVELOPMENT_ASSET_PATHS = "\"MountainSpotterApp/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
