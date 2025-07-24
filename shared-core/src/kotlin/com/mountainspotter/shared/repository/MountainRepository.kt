@@ -9,7 +9,14 @@ import com.mountainspotter.shared.model.Location
  */
 class MountainRepository {
     
-    // Sample data - in reality this would come from external sources
+    // todo Sample data - in reality this would come from external sources
+use overpass query with gps based limit
+`
+[out:json][timeout:25];
+// gather results
+nwr["natural"="peak"]({{bbox}});
+// print results
+out geom; `
     private val samplePeaks = listOf(
         MountainPeak(
             id = "mont_blanc",
