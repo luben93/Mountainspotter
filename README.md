@@ -38,6 +38,10 @@ A Kotlin Multiplatform Mobile app that uses GPS, compass, and elevation data to 
 
 ### Building
 ```bash
+# Build both Android APK and iOS framework
+./gradlew foo
+
+# Or build individually  
 ./gradlew build
 ```
 
