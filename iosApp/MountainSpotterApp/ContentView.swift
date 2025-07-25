@@ -122,17 +122,17 @@ struct LocationInfoView: View {
                 .fontWeight(.semibold)
             
             if let location = location {
-                Text("Location: \(String(format: "%.6f", location.latitude)), \(String(format: "%.6f", location.longitude))")
+                Text("Location: \(String(format: "%.6f", location.latitude.doubleValue)), \(String(format: "%.6f", location.longitude.doubleValue))")
                 if let altitude = location.altitude {
-                    Text("Altitude: \(Int(altitude.rounded()))m")
+                    Text("Altitude: \(Int(altitude.doubleValue.rounded()))m")
                 }
             } else {
                 Text("Location: Not available")
             }
             
             if let compass = compassData {
-                Text("Bearing: \(Int(Double(compass.azimuth).rounded()))°")
-                Text("Pitch: \(Int(Double(compass.pitch).rounded()))°")
+                Text("Bearing: \(Int(Double(compass.azimuth.floatValue).rounded()))°")
+                Text("Pitch: \(Int(Double(compass.pitch.floatValue).rounded()))°")
             } else {
                 Text("Compass: Not available")
             }
@@ -152,17 +152,17 @@ struct PeakCardView: View {
                 .font(.title3)
                 .fontWeight(.semibold)
             
-            Text("\(Int(peak.peak.elevation.rounded()))m elevation")
+            Text("\(Int(peak.peak.elevation.doubleValue.rounded()))m elevation")
                 .font(.body)
                 .foregroundColor(.secondary)
             
             HStack {
-                Text("Distance: \(String(format: "%.1f", peak.distance))km")
+                Text("Distance: \(String(format: "%.1f", peak.distance.doubleValue))km")
                 Spacer()
-                Text("Bearing: \(Int(peak.bearing.rounded()))°")
+                Text("Bearing: \(Int(peak.bearing.doubleValue.rounded()))°")
             }
             
-            Text("Elevation Angle: \(String(format: "%.1f", peak.elevationAngle))°")
+            Text("Elevation Angle: \(String(format: "%.1f", peak.elevationAngle.doubleValue))°")
             
             if let country = peak.peak.country {
                 Text(country)
