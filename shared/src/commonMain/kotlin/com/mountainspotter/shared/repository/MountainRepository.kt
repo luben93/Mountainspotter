@@ -178,4 +178,11 @@ class MountainRepository {
         lastRadius = 0.0
         imageCacheService.clearCache()
     }
+    
+    /**
+     * Close resources (for testing and cleanup)
+     */
+    fun close() {
+        httpClient.close()
+    }
 }
