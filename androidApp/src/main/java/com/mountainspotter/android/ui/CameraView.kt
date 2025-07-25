@@ -19,6 +19,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.PaintingStyle
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
@@ -144,10 +145,10 @@ fun HorizonOverlay(
         val centerY = canvasHeight / 2f
         
         compassData?.let { compass ->
-            // Draw horizon line
-            drawHorizonLine(compass, centerX, centerY, canvasWidth)
+            // Draw topographical horizon profile instead of flat line
+            drawTopographicalHorizon(visiblePeaks, compass, centerX, centerY, canvasWidth, canvasHeight)
             
-            // Draw peak markers
+            // Draw peak markers on top of the profile
             visiblePeaks.filter { it.isVisible }.forEach { peak ->
                 drawPeakMarker(peak, compass, centerX, centerY, canvasWidth, canvasHeight)
             }
@@ -158,35 +159,162 @@ fun HorizonOverlay(
     }
 }
 
-private fun DrawScope.drawHorizonLine(
+private fun DrawScope.drawTopographicalHorizon(
+    visiblePeaks: List<VisiblePeak>,
     compass: CompassData,
     centerX: Float,
     centerY: Float,
-    canvasWidth: Float
+    canvasWidth: Float,
+    canvasHeight: Float
 ) {
-    // Calculate horizon line position based on pitch
-    val horizonY = centerY + (compass.pitch * 10f) // Scale pitch for visibility
+    // Calculate base horizon position based on pitch
+    val baseHorizonY = centerY + (compass.pitch * 10f)
     
-    drawLine(
-        color = Color.White,
-        start = Offset(0f, horizonY),
-        end = Offset(canvasWidth, horizonY),
-        strokeWidth = 3.dp.toPx(),
-        alpha = 0.8f
-    )
+    // Field of view (roughly ±60 degrees)
+    val fieldOfView = 60.0
     
-    // Draw horizon line label
+    // Filter peaks within field of view and sort by bearing
+    val peaksInView = visiblePeaks.filter { peak ->
+        val bearingDiff = peak.bearing - compass.azimuth
+        val normalizedBearing = when {
+            bearingDiff > 180 -> bearingDiff - 360
+            bearingDiff < -180 -> bearingDiff + 360
+            else -> bearingDiff
+        }
+        abs(normalizedBearing) <= fieldOfView && peak.isVisible
+    }.sortedBy { peak ->
+        val bearingDiff = peak.bearing - compass.azimuth
+        when {
+            bearingDiff > 180 -> bearingDiff - 360
+            bearingDiff < -180 -> bearingDiff + 360
+            else -> bearingDiff
+        }
+    }
+    
+    if (peaksInView.isEmpty()) {
+        // Draw flat horizon line if no peaks visible
+        drawLine(
+            color = Color.White,
+            start = Offset(0f, baseHorizonY),
+            end = Offset(canvasWidth, baseHorizonY),
+            strokeWidth = 2.dp.toPx(),
+            alpha = 0.6f
+        )
+        return
+    }
+    
+    // Create horizon profile points
+    val profilePoints = mutableListOf<Offset>()
+    
+    // Add left edge point at base horizon
+    profilePoints.add(Offset(0f, baseHorizonY))
+    
+    // Add peak points
+    peaksInView.forEach { peak ->
+        val bearingDiff = peak.bearing - compass.azimuth
+        val normalizedBearing = when {
+            bearingDiff > 180 -> bearingDiff - 360
+            bearingDiff < -180 -> bearingDiff + 360
+            else -> bearingDiff
+        }
+        
+        val screenX = centerX + (normalizedBearing * canvasWidth / (fieldOfView * 2)).toFloat()
+        val elevationOffset = (peak.elevationAngle * 15f).toFloat() // Scale elevation for visibility
+        val screenY = baseHorizonY - elevationOffset
+        
+        // Ensure point is within screen bounds
+        val clampedX = screenX.coerceIn(0f, canvasWidth)
+        val clampedY = screenY.coerceIn(0f, canvasHeight)
+        
+        profilePoints.add(Offset(clampedX, clampedY))
+    }
+    
+    // Add right edge point at base horizon
+    profilePoints.add(Offset(canvasWidth, baseHorizonY))
+    
+    // Interpolate points for smoother profile
+    val smoothedPoints = interpolateHorizonProfile(profilePoints, canvasWidth)
+    
+    // Draw the topographical horizon profile as a filled shape
+    if (smoothedPoints.size >= 2) {
+        // Create path for filled horizon silhouette
+        val path = androidx.compose.ui.graphics.Path()
+        
+        // Start from bottom left
+        path.moveTo(0f, canvasHeight)
+        
+        // Draw to first horizon point
+        path.lineTo(smoothedPoints.first().x, smoothedPoints.first().y)
+        
+        // Draw the horizon profile
+        smoothedPoints.windowed(2).forEach { (current, next) ->
+            path.lineTo(next.x, next.y)
+        }
+        
+        // Close the path at bottom right
+        path.lineTo(canvasWidth, canvasHeight)
+        path.lineTo(0f, canvasHeight)
+        
+        // Fill the horizon silhouette
+        drawPath(
+            path = path,
+            color = Color.Black.copy(alpha = 0.3f)
+        )
+        
+        // Draw the horizon profile line
+        smoothedPoints.windowed(2).forEach { (current, next) ->
+            drawLine(
+                color = Color.White,
+                start = current,
+                end = next,
+                strokeWidth = 3.dp.toPx(),
+                alpha = 0.9f
+            )
+        }
+    }
+    
+    // Draw horizon label
     drawContext.canvas.nativeCanvas.apply {
         val paint = Paint().asFrameworkPaint().apply {
             color = Color.White.copy(alpha = 0.9f).hashCode()
-            textSize = 14.sp.toPx()
+            textSize = 12.sp.toPx()
             isAntiAlias = true
         }
-        drawText("HORIZON", 10f, horizonY - 10f, paint)
+        drawText("TOPOGRAPHICAL HORIZON", 10f, baseHorizonY - 10f, paint)
     }
 }
 
-//this function should not draw a flat computed horizon it should plot out the peaks with the profile on the horizion based of the VisiblePeak data and other topographical data from openstreetmap
+private fun interpolateHorizonProfile(points: List<Offset>, canvasWidth: Float): List<Offset> {
+    if (points.size < 2) return points
+    
+    val interpolatedPoints = mutableListOf<Offset>()
+    val sortedPoints = points.sortedBy { it.x }
+    
+    // Sample points at regular intervals for smooth profile
+    val sampleInterval = canvasWidth / 100f // Sample every 1% of screen width
+    
+    for (x in 0..100) {
+        val targetX = x * sampleInterval
+        
+        // Find the two points to interpolate between
+        val leftPoint = sortedPoints.lastOrNull { it.x <= targetX } ?: sortedPoints.first()
+        val rightPoint = sortedPoints.firstOrNull { it.x >= targetX } ?: sortedPoints.last()
+        
+        val interpolatedY = if (leftPoint == rightPoint) {
+            leftPoint.y
+        } else {
+            val ratio = (targetX - leftPoint.x) / (rightPoint.x - leftPoint.x)
+            leftPoint.y + ratio * (rightPoint.y - leftPoint.y)
+        }
+        
+        interpolatedPoints.add(Offset(targetX, interpolatedY))
+    }
+    
+    return interpolatedPoints
+}
+
+// This function now draws peak markers on top of the topographical horizon profile
+// The actual horizon profile is drawn by drawTopographicalHorizon() using VisiblePeak data
 private fun DrawScope.drawPeakMarker(
     peak: VisiblePeak,
     compass: CompassData,
@@ -210,35 +338,44 @@ private fun DrawScope.drawPeakMarker(
     // Calculate screen position
     val screenX = centerX + (normalizedBearing * canvasWidth / (fieldOfView * 2)).toFloat()
     val elevationOffset = (peak.elevationAngle * 15f).toFloat() // Scale elevation for visibility
-    val screenY = centerY + compass.pitch * 10f - elevationOffset
+    val baseHorizonY = centerY + compass.pitch * 10f
+    val screenY = baseHorizonY - elevationOffset
     
     // Ensure marker is within screen bounds
     if (screenX < 0 || screenX > canvasWidth || screenY < 0 || screenY > canvasHeight) return
     
-    // Draw peak marker
-    drawCircle(
+    // Draw peak marker as a small triangle pointing to the peak on the horizon
+    val markerSize = 6.dp.toPx()
+    val trianglePath = Path().apply {
+        moveTo(screenX, screenY - markerSize)
+        lineTo(screenX - markerSize / 2, screenY)
+        lineTo(screenX + markerSize / 2, screenY)
+        close()
+    }
+    
+    drawPath(
+        path = trianglePath,
         color = Color.Red,
-        radius = 8.dp.toPx(),
-        center = Offset(screenX, screenY),
         style = Stroke(width = 2.dp.toPx())
     )
     
-    // Draw peak info
+    // Draw peak info above the marker
     drawContext.canvas.nativeCanvas.apply {
         val paint = Paint().asFrameworkPaint().apply {
             color = Color.White.hashCode()
-            textSize = 12.sp.toPx()
+            textSize = 10.sp.toPx()
             isAntiAlias = true
+            textAlign = android.graphics.Paint.Align.CENTER
         }
         
-        val text = "${peak.peak.name}\n${peak.peak.elevation.toInt()}m"
+        val text = "${peak.peak.name}\n${peak.peak.elevation.toInt()}m\n${String.format("%.1f", peak.distance)}km"
         val lines = text.split("\n")
         
         lines.forEachIndexed { index, line ->
             drawText(
                 line,
-                screenX + 12.dp.toPx(),
-                screenY + (index.toFloat() * 16.sp.toPx()) - 4.dp.toPx(),
+                screenX,
+                screenY - markerSize - 5.dp.toPx() - (index.toFloat() * 12.sp.toPx()),
                 paint
             )
         }
