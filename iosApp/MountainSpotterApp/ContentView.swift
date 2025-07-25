@@ -122,9 +122,9 @@ struct LocationInfoView: View {
                 .fontWeight(.semibold)
             
             if let location = location {
-                Text("Location: \(String(format: "%.6f", location.latitude.doubleValue)), \(String(format: "%.6f", location.longitude.doubleValue))")
+                Text("Location: \(String(format: "%.6f", location.latitude)), \(String(format: "%.6f", location.longitude))")
                 if let altitude = location.altitude {
-                    Text("Altitude: \(Int(altitude.doubleValue.rounded()))m")
+                    Text("Altitude: \(Int(altitude.rounded()))m")
                 }
             } else {
                 Text("Location: Not available")
@@ -152,17 +152,17 @@ struct PeakCardView: View {
                 .font(.title3)
                 .fontWeight(.semibold)
             
-            Text("\(Int(peak.peak.elevation.doubleValue.rounded()))m elevation")
+            Text("\(Int(peak.peak.elevation.rounded()))m elevation")
                 .font(.body)
                 .foregroundColor(.secondary)
             
             HStack {
-                Text("Distance: \(String(format: "%.1f", peak.distance.doubleValue))km")
+                Text("Distance: \(String(format: "%.1f", peak.distance))km")
                 Spacer()
-                Text("Bearing: \(Int(peak.bearing.doubleValue.rounded()))°")
+                Text("Bearing: \(Int(peak.bearing.rounded()))°")
             }
             
-            Text("Elevation Angle: \(String(format: "%.1f", peak.elevationAngle.doubleValue))°")
+            Text("Elevation Angle: \(String(format: "%.1f", peak.elevationAngle))°")
             
             if let country = peak.peak.country {
                 Text(country)
