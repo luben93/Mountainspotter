@@ -5,7 +5,7 @@ A Kotlin Multiplatform Mobile app that uses GPS, compass, and elevation data to 
 ## Features
 
 - **GPS Location**: Uses device GPS to determine your current position and altitude
-- **Compass Integration**: Combines device orientation with peak bearing calculations
+- **Compass Integration**: Combines device orientation with peak bearing calculations  
 - **Peak Visibility**: Calculates which mountain peaks are visible from your location
 - **Mountain Database**: Contains information about major mountain peaks worldwide
 - **Cross-Platform**: Built with Kotlin Multiplatform for both Android and iOS

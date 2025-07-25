@@ -1,4 +1,4 @@
-rootProject.name = "mountainspotter"
+rootProject.name = "MountainSpotter"
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 pluginManagement {
@@ -29,3 +29,5 @@ dependencyResolutionManagement {
 }
 
 include(":composeApp")
+include(":shared")
+include(":shared-core")
