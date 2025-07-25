@@ -15,15 +15,6 @@ This Kotlin Multiplatform Mobile (KMM) project can be built for both Android and
 
 ## Local Development
 
-### Unified Build (foo)
-**NEW:** Build both Android APK and iOS framework with a single command:
-```bash
-./gradlew foo
-```
-This will produce:
-- Android APK at: `composeApp/build/outputs/apk/debug/composeApp-debug.apk`
-- iOS framework (if on macOS): `composeApp/build/bin/iosSimulatorArm64/debugFramework/ComposeApp.framework`
-
 ### Android
 1. Open the project in Android Studio
 2. Let Gradle sync the project
