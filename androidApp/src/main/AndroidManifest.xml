@@ -8,9 +8,13 @@
     <!-- Network permission for fetching peak data -->
     <uses-permission android:name="android.permission.INTERNET" />
     
+    <!-- Camera permission -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    
     <!-- Sensor permissions (usually granted by default) -->
     <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="true" />
     <uses-feature android:name="android.hardware.sensor.compass" android:required="true" />
+    <uses-feature android:name="android.hardware.camera" android:required="true" />
 
     <application
         android:name=".MountainSpotterApplication"

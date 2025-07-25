@@ -6,6 +6,8 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,8 +18,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
-import com.google.accompanist.permissions.rememberPermissionState
+import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.google.accompanist.permissions.shouldShowRationale
+import com.mountainspotter.android.ui.CameraView
 import com.mountainspotter.android.ui.theme.MountainSpotterTheme
 import com.mountainspotter.android.viewmodel.AndroidMountainSpotterViewModel
 import com.mountainspotter.shared.model.VisiblePeak
@@ -53,23 +56,52 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     
-                    val locationPermissionState = rememberPermissionState(
-                        android.Manifest.permission.ACCESS_FINE_LOCATION
+                    val permissionState = rememberMultiplePermissionsState(
+                        permissions = listOf(
+                            android.Manifest.permission.ACCESS_FINE_LOCATION,
+                            android.Manifest.permission.CAMERA
+                        )
                     )
                     
-                    LaunchedEffect(locationPermissionState.status.isGranted) {
-                        if (locationPermissionState.status.isGranted) {
+                    LaunchedEffect(permissionState.allPermissionsGranted) {
+                        if (permissionState.permissions.find { 
+                            it.permission == android.Manifest.permission.ACCESS_FINE_LOCATION 
+                        }?.status?.isGranted == true) {
                             viewModel.requestLocationPermission()
                         }
                     }
                     
-                    MountainSpotterScreen(
-                        viewModel = viewModel,
-                        onRequestPermission = {
-                            locationPermissionState.launchPermissionRequest()
-                        },
-                        hasLocationPermission = locationPermissionState.status.isGranted
-                    )
+                    var showCameraView by remember { mutableStateOf(false) }
+                    
+                    if (showCameraView) {
+                        // Camera View
+                        val uiState by viewModel.uiState.collectAsState()
+                        val currentLocation by viewModel.currentLocation.collectAsState()
+                        val compassData by viewModel.compassData.collectAsState()
+                        val visiblePeaks by viewModel.visiblePeaks.collectAsState()
+                        
+                        CameraView(
+                            visiblePeaks = visiblePeaks,
+                            currentLocation = currentLocation,
+                            compassData = compassData,
+                            onBack = { showCameraView = false }
+                        )
+                    } else {
+                        // List View
+                        MountainSpotterScreen(
+                            viewModel = viewModel,
+                            onRequestPermission = {
+                                permissionState.launchMultiplePermissionRequest()
+                            },
+                            hasLocationPermission = permissionState.permissions.find { 
+                                it.permission == android.Manifest.permission.ACCESS_FINE_LOCATION 
+                            }?.status?.isGranted == true,
+                            hasCameraPermission = permissionState.permissions.find { 
+                                it.permission == android.Manifest.permission.CAMERA 
+                            }?.status?.isGranted == true,
+                            onShowCameraView = { showCameraView = true }
+                        )
+                    }
                 }
             }
         }
@@ -80,7 +112,9 @@ class MainActivity : ComponentActivity() {
 fun MountainSpotterScreen(
     viewModel: AndroidMountainSpotterViewModel,
     onRequestPermission: () -> Unit,
-    hasLocationPermission: Boolean
+    hasLocationPermission: Boolean,
+    hasCameraPermission: Boolean,
+    onShowCameraView: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val currentLocation by viewModel.currentLocation.collectAsState()
@@ -93,16 +127,38 @@ fun MountainSpotterScreen(
             .padding(16.dp)
     ) {
         // Header
-        Text(
-            text = "Mountain Spotter",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Mountain Spotter",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold
+            )
+            
+            // Camera View Button
+            if (hasLocationPermission && hasCameraPermission) {
+                IconButton(onClick = onShowCameraView) {
+                    Icon(
+                        imageVector = Icons.Default.CameraAlt,
+                        contentDescription = "Camera View",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
         
         // Permission handling
-        if (!hasLocationPermission) {
-            PermissionRequest(onRequestPermission = onRequestPermission)
+        if (!hasLocationPermission || !hasCameraPermission) {
+            PermissionRequest(
+                onRequestPermission = onRequestPermission,
+                hasLocationPermission = hasLocationPermission,
+                hasCameraPermission = hasCameraPermission
+            )
             return
         }
         
@@ -167,7 +223,11 @@ fun MountainSpotterScreen(
 }
 
 @Composable
-fun PermissionRequest(onRequestPermission: () -> Unit) {
+fun PermissionRequest(
+    onRequestPermission: () -> Unit,
+    hasLocationPermission: Boolean,
+    hasCameraPermission: Boolean
+) {
     Card(
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -175,21 +235,32 @@ fun PermissionRequest(onRequestPermission: () -> Unit) {
             modifier = Modifier.padding(16.dp)
         ) {
             Text(
-                text = "Location Permission Required",
+                text = "Permissions Required",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "This app needs location access to show you nearby mountain peaks.",
-                style = MaterialTheme.typography.bodyMedium
-            )
+            
+            if (!hasLocationPermission) {
+                Text(
+                    text = "• Location access to show nearby mountain peaks",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            
+            if (!hasCameraPermission) {
+                Text(
+                    text = "• Camera access for the horizon view",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            
             Spacer(modifier = Modifier.height(16.dp))
             Button(
                 onClick = onRequestPermission,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Grant Location Permission")
+                Text("Grant Permissions")
             }
         }
     }

@@ -17,7 +17,8 @@ data class MountainPeak(
     val elevation: Double,
     val prominence: Double? = null,
     val country: String? = null,
-    val region: String? = null
+    val region: String? = null,
+    val imageUrl: String? = null
 )
 
 data class CompassData(
