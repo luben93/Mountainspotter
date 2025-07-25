@@ -27,6 +27,7 @@ jobs:
         path: |
           ~/.gradle/caches
           ~/.gradle/wrapper
+          ~/.konan
         key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
         restore-keys: |
           ${{ runner.os }}-gradle-
@@ -34,23 +35,93 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
       
+    - name: Network connectivity check
+      run: |
+        echo "🌐 Checking network connectivity for critical dependencies..."
+        
+        # Check key repositories
+        urls_to_check=(
+          "https://repo1.maven.org/maven2/"
+          "https://dl.google.com/dl/android/maven2/"
+          "https://plugins.gradle.org/m2/"
+          "https://download.jetbrains.com/"
+        )
+        
+        for url in "${urls_to_check[@]}"; do
+          if curl -sSf --connect-timeout 10 --max-time 30 "$url" > /dev/null; then
+            echo "✅ $url - OK"
+          else
+            echo "⚠️ $url - Failed (may cause issues)"
+          fi
+        done
+        
+        echo "🔍 System info:"
+        echo "  macOS version: $(sw_vers -productVersion)"
+        echo "  Xcode version: $(xcode-select --print-path)"
+        echo "  Java version: $(java -version 2>&1 | head -1)"
+      
     - name: Build Kotlin Multiplatform shared frameworks
       run: |
-        # Build debug frameworks for all iOS targets
-        ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64 --stacktrace --no-daemon
-        ./gradlew :shared:linkDebugFrameworkIosArm64 --stacktrace --no-daemon
-        ./gradlew :shared:linkDebugFrameworkIosX64 --stacktrace --no-daemon
+        set -e
+        
+        echo "📱 Building Kotlin Multiplatform shared frameworks for iOS..."
+        
+        # Function to retry gradle commands with backoff
+        retry_gradle_command() {
+          local cmd="$1"
+          local max_attempts=3
+          local delay=5
+          
+          for i in $(seq 1 $max_attempts); do
+            echo "Attempt $i/$max_attempts: $cmd"
+            if eval "$cmd"; then
+              echo "✅ Success: $cmd"
+              return 0
+            else
+              echo "❌ Failed: $cmd (attempt $i/$max_attempts)"
+              if [ $i -lt $max_attempts ]; then
+                echo "⏳ Waiting ${delay}s before retry..."
+                sleep $delay
+                delay=$((delay * 2))  # Exponential backoff
+              fi
+            fi
+          done
+          
+          echo "💥 All attempts failed for: $cmd"
+          return 1
+        }
+        
+        # Build debug frameworks for all iOS targets with retry logic
+        echo "🔨 Building debug frameworks..."
+        retry_gradle_command "./gradlew :shared:linkDebugFrameworkIosSimulatorArm64 --stacktrace --no-daemon --refresh-dependencies"
+        retry_gradle_command "./gradlew :shared:linkDebugFrameworkIosArm64 --stacktrace --no-daemon"
+        retry_gradle_command "./gradlew :shared:linkDebugFrameworkIosX64 --stacktrace --no-daemon"
         
         # Build release frameworks for device archiving
-        ./gradlew :shared:linkReleaseFrameworkIosArm64 --stacktrace --no-daemon
+        echo "🚀 Building release framework for device..."
+        retry_gradle_command "./gradlew :shared:linkReleaseFrameworkIosArm64 --stacktrace --no-daemon"
         
         # Create the xcode-frameworks directory structure
+        echo "📁 Creating xcode-frameworks directory structure..."
         mkdir -p shared/build/xcode-frameworks
         
         # Verify frameworks were built
-        echo "Checking built frameworks:"
-        find shared/build -name "*.framework" -type d || echo "No frameworks found in expected location"
-        find . -name "shared.framework" -type d || echo "No shared.framework found anywhere"
+        echo "🔍 Checking built frameworks:"
+        find shared/build -name "*.framework" -type d | head -10 | while read framework; do
+          echo "  ✅ Found: $framework"
+        done
+        
+        framework_count=$(find shared/build -name "*.framework" -type d | wc -l)
+        echo "📊 Total frameworks built: $framework_count"
+        
+        if [ "$framework_count" -eq 0 ]; then
+          echo "❌ No frameworks found! Build may have failed."
+          echo "🔍 Directory structure:"
+          find shared/build -type d | head -20
+          exit 1
+        else
+          echo "✅ Framework building completed successfully!"
+        fi
       
     - name: Setup Xcode
       uses: maxim-lobanov/setup-xcode@v1
@@ -60,61 +131,132 @@ jobs:
     - name: Build iOS App for Simulator
       run: |
         cd iosApp
-        echo "Building for iOS Simulator..."
+        echo "🏗️ Building iOS app for simulator..."
+        
+        # Clean build folder first
+        xcodebuild clean -project MountainSpotterApp.xcodeproj -scheme MountainSpotterApp
+        
+        echo "📱 Building for iOS Simulator (iPhone 15)..."
         xcodebuild -project MountainSpotterApp.xcodeproj \
           -scheme MountainSpotterApp \
           -configuration Debug \
           -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
-          build
+          -derivedDataPath DerivedData \
+          build \
+          | tee build-simulator.log
+        
+        echo "✅ iOS Simulator build completed!"
         
     - name: Build iOS App for Device (Archive)
       run: |
         cd iosApp
-        echo "Creating iOS Archive..."
+        echo "📦 Creating iOS Archive for device..."
+        
+        # Clean previous archives
+        rm -rf MountainSpotterApp.xcarchive
+        
+        echo "🔨 Building and archiving for iOS device..."
         xcodebuild -project MountainSpotterApp.xcodeproj \
           -scheme MountainSpotterApp \
           -configuration Release \
           -destination 'generic/platform=iOS' \
           -archivePath MountainSpotterApp.xcarchive \
+          -derivedDataPath DerivedData \
           archive \
           CODE_SIGN_IDENTITY="" \
           CODE_SIGNING_REQUIRED=NO \
           CODE_SIGNING_ALLOWED=NO \
-          AD_HOC_CODE_SIGNING_ALLOWED=NO
+          AD_HOC_CODE_SIGNING_ALLOWED=NO \
+          | tee build-archive.log
+        
+        # Verify archive was created
+        if [ -d "MountainSpotterApp.xcarchive" ]; then
+          echo "✅ Archive created successfully!"
+          echo "📊 Archive size: $(du -sh MountainSpotterApp.xcarchive | cut -f1)"
+          echo "📁 Archive contents:"
+          ls -la MountainSpotterApp.xcarchive/
+        else
+          echo "❌ Archive creation failed!"
+          echo "🔍 Available files:"
+          ls -la .
+          exit 1
+        fi
         
     - name: Export IPA
       run: |
         cd iosApp
         if [ -d "MountainSpotterApp.xcarchive" ]; then
-          echo "Archive found, attempting to export IPA..."
-          xcodebuild -exportArchive \
+          echo "📦 Archive found, attempting to export IPA..."
+          
+          # Clean export directory
+          rm -rf ./export
+          mkdir -p ./export
+          
+          # Attempt IPA export with detailed logging
+          echo "🚀 Exporting IPA from archive..."
+          if xcodebuild -exportArchive \
             -archivePath MountainSpotterApp.xcarchive \
             -exportPath ./export \
             -exportOptionsPlist ExportOptions.plist \
-            -allowProvisioningUpdates || echo "IPA export failed - this is expected without proper signing certificates"
+            -allowProvisioningUpdates \
+            | tee export.log; then
+            echo "✅ IPA export succeeded!"
+          else
+            echo "⚠️ IPA export failed - this is expected without proper signing certificates"
+            echo "📋 Export log tail:"
+            tail -20 export.log || echo "No export log available"
+          fi
           
           # List what was created
-          echo "Contents of export directory:"
-          ls -la ./export/ || echo "No export directory created"
+          echo "📁 Contents of export directory:"
+          if [ -d "./export" ]; then
+            ls -la ./export/ | head -10
+            
+            # Check for IPA files
+            ipa_count=$(find ./export -name "*.ipa" | wc -l)
+            echo "📊 IPA files found: $ipa_count"
+            
+            if [ "$ipa_count" -gt 0 ]; then
+              find ./export -name "*.ipa" | while read ipa; do
+                echo "  ✅ IPA: $ipa ($(du -sh "$ipa" | cut -f1))"
+              done
+            fi
+          else
+            echo "❌ No export directory created"
+          fi
           
-          # Create a basic IPA structure if export failed but archive succeeded
+          # Create a basic archive copy for download if export failed but archive succeeded
           if [ ! -f "./export/*.ipa" ] && [ -d "MountainSpotterApp.xcarchive" ]; then
-            echo "Creating basic IPA structure from archive..."
-            mkdir -p ./export
+            echo "📋 Creating archive copy for download since IPA export failed..."
             cp -r MountainSpotterApp.xcarchive ./export/
-            echo "Archive copied to export directory for download"
+            echo "✅ Archive copied to export directory for download"
           fi
         else
-          echo "No archive found, skipping IPA export"
+          echo "❌ No archive found, skipping IPA export"
+          echo "🔍 Available files in iosApp directory:"
+          ls -la .
         fi
         
     - name: Upload iOS build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: mountainspotter-ios-build
+        name: mountainspotter-ios-build-${{ github.run_number }}
         path: |
           iosApp/MountainSpotterApp.xcarchive
-          iosApp/export/*.ipa
-          iosApp/export/MountainSpotterApp.xcarchive
+          iosApp/export/
+          iosApp/*.log
+          iosApp/DerivedData/Logs/
         retention-days: 30
         if-no-files-found: warn
+        
+    - name: Upload build logs (on failure)
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ios-build-logs-${{ github.run_number }}
+        path: |
+          iosApp/*.log
+          iosApp/DerivedData/Logs/
+          shared/build/reports/
+        retention-days: 7
+        if-no-files-found: ignore
