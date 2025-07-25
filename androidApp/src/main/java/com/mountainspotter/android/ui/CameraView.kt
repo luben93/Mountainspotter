@@ -186,6 +186,7 @@ private fun DrawScope.drawHorizonLine(
     }
 }
 
+//this function should not draw a flat computed horizon it should plot out the peaks with the profile on the horizion based of the VisiblePeak data and other topographical data from openstreetmap
 private fun DrawScope.drawPeakMarker(
     peak: VisiblePeak,
     compass: CompassData,
