@@ -25,6 +25,8 @@ kotlin {
         iosTarget.binaries.framework {
             baseName = "ComposeApp"
             isStatic = true
+            export(projects.shared)
+            export(projects.sharedCore)
         }
     }
     
@@ -43,6 +45,10 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.androidx.lifecycle.runtimeCompose)
+
+            // Add dependencies to shared modules
+            implementation(projects.shared)
+            implementation(projects.sharedCore)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -80,4 +86,3 @@ android {
 dependencies {
     debugImplementation(compose.uiTooling)
 }
-
