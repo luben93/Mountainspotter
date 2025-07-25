@@ -13,13 +13,13 @@ import example.imageviewer.ImageStorage
 import example.imageviewer.PlatformStorableImage
 import example.imageviewer.model.PictureData
 import example.imageviewer.toImageBitmap
-import imageviewer.shared.generated.resources.Res
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import mountainspotter.shared.generated.resources.Res
 import java.io.File
 
 private const val maxStorableImageSizePx = 2000

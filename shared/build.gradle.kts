@@ -12,11 +12,6 @@ version = "1.0-SNAPSHOT"
 kotlin {
     androidTarget()
     jvm("desktop")
-    js {
-        browser()
-        useEsModules()
-    }
-    wasmJs { browser() }
 
     listOf(
         iosX64(),
@@ -89,20 +84,7 @@ kotlin {
 
         }
 
-        val jsWasmMain by creating {
-            dependsOn(commonMain.get())
-            dependencies {
-                implementation(npm("uuid", "^9.0.1"))
-            }
-        }
 
-        val jsMain by getting {
-            dependsOn(jsWasmMain)
-        }
-
-        val wasmJsMain by getting {
-            dependsOn(jsWasmMain)
-        }
 
         val desktopMain by getting
         desktopMain.dependencies {

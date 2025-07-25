@@ -34,7 +34,7 @@ import example.imageviewer.icon.IconPhotoCamera
 import example.imageviewer.model.GpsPosition
 import example.imageviewer.model.PictureData
 import example.imageviewer.model.createCameraPictureData
-import imageviewer.shared.generated.resources.Res
+import mountainspotter.shared.generated.resources.Res
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.nio.ByteBuffer

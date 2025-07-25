@@ -1,3 +1,4 @@
+
 rootProject.name = "Mountainspotter"
 
 pluginManagement {
@@ -32,7 +33,8 @@ plugins {
 include(":shared")
 include(":shared-core")
 include(":androidApp")
-include(":webApp")
-include(":desktopApp")
+//include(":webApp")
+//include(":desktopApp")
 include(":mapview-desktop")
 //include(":iosApp")
+

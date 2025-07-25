@@ -6,9 +6,9 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.ImageBitmap
 import example.imageviewer.filter.PlatformContext
 import example.imageviewer.model.PictureData
-import imageviewer.shared.generated.resources.Res
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
+import mountainspotter.shared.generated.resources.Res
 
 abstract class Dependencies {
     abstract val notification: Notification
