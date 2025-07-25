@@ -27,7 +27,7 @@ class IOSMountainSpotterViewModel: ObservableObject {
         )
         
         // Observe the shared viewmodel state
-        mountainSpotterViewModel?.uiState.collect { [weak self] uiState in
+        mountainSpotterViewModel?.uiState.collect { [weak self] (uiState: MountainSpotterUiState) in
             DispatchQueue.main.async {
                 self?.hasLocationPermission = uiState.hasLocationPermission
                 self?.isLoading = uiState.isLoading
@@ -35,19 +35,19 @@ class IOSMountainSpotterViewModel: ObservableObject {
             }
         }
         
-        mountainSpotterViewModel?.currentLocation.collect { [weak self] location in
+        mountainSpotterViewModel?.currentLocation.collect { [weak self] (location: shared.Location?) in
             DispatchQueue.main.async {
                 self?.currentLocation = location
             }
         }
         
-        mountainSpotterViewModel?.compassData.collect { [weak self] compassData in
+        mountainSpotterViewModel?.compassData.collect { [weak self] (compassData: CompassData?) in
             DispatchQueue.main.async {
                 self?.compassData = compassData
             }
         }
         
-        mountainSpotterViewModel?.visiblePeaks.collect { [weak self] peaks in
+        mountainSpotterViewModel?.visiblePeaks.collect { [weak self] (peaks: [VisiblePeak]) in
             DispatchQueue.main.async {
                 self?.visiblePeaks = peaks
             }
