@@ -121,12 +121,58 @@ jobs:
           exit 1
         else
           echo "✅ Framework building completed successfully!"
+          
+          # Verify specific frameworks exist
+          expected_frameworks=(
+            "shared/build/bin/iosArm64/debugFramework/shared.framework"
+            "shared/build/bin/iosArm64/releaseFramework/shared.framework"
+            "shared/build/bin/iosSimulatorArm64/debugFramework/shared.framework"
+            "shared/build/bin/iosX64/debugFramework/shared.framework"
+          )
+          
+          echo "🔍 Verifying expected frameworks:"
+          for framework in "${expected_frameworks[@]}"; do
+            if [ -d "$framework" ]; then
+              echo "  ✅ $framework"
+            else
+              echo "  ⚠️ $framework (missing - may be expected depending on build targets)"
+            fi
+          done
         fi
       
     - name: Setup Xcode
       uses: maxim-lobanov/setup-xcode@v1
       with:
         xcode-version: latest-stable
+        
+    - name: Verify Xcode Project Configuration
+      run: |
+        cd iosApp
+        echo "🔍 Verifying Xcode project configuration..."
+        
+        # Check if project file exists
+        if [ -f "MountainSpotterApp.xcodeproj/project.pbxproj" ]; then
+          echo "✅ Xcode project file found"
+        else
+          echo "❌ Xcode project file missing!"
+          exit 1
+        fi
+        
+        # Verify framework reference in Xcode project
+        if grep -q "shared.framework" MountainSpotterApp.xcodeproj/project.pbxproj; then
+          echo "✅ shared.framework reference found in Xcode project"
+        else
+          echo "⚠️ shared.framework reference not found in Xcode project"
+        fi
+        
+        # Check framework path configuration
+        expected_path="../shared/build/xcode-frameworks/shared.framework"
+        if grep -q "$expected_path" MountainSpotterApp.xcodeproj/project.pbxproj; then
+          echo "✅ Framework path correctly configured: $expected_path"
+        else
+          echo "⚠️ Expected framework path not found, checking for alternatives..."
+          grep -n "shared.framework" MountainSpotterApp.xcodeproj/project.pbxproj | head -3
+        fi
         
     - name: Build iOS App for Simulator
       run: |
