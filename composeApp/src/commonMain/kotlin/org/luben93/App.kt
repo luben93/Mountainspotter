@@ -10,6 +10,7 @@ import com.mountainspotter.shared.model.CompassData
 import com.mountainspotter.shared.model.Location
 import com.mountainspotter.shared.model.VisiblePeak
 import com.mountainspotter.shared.viewmodel.MountainSpotterViewModel
+import org.luben93.theme.AppTheme
 
 @Composable
 fun App() {
@@ -22,7 +23,7 @@ fun App() {
     // Track whether to show camera view
     var showCameraView by remember { mutableStateOf(false) }
 
-    MaterialTheme {
+    AppTheme {
         Box(modifier = Modifier.fillMaxSize()) {
             if (!uiState.hasLocationPermission) {
                 PermissionRequest(
