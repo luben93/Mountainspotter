@@ -70,7 +70,7 @@ fun PermissionRequest(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text("Location permission is required to use Mountain Spotter")
+        Text("Location permission is required to use Mountain Spotter", color = MaterialTheme.colorScheme.onBackground)
         Spacer(Modifier.height(16.dp))
         Button(onClick = onRequestPermission) {
             Text("Grant Permission")
@@ -102,12 +102,14 @@ fun MountainSpotterContent(
             currentLocation?.let {
                 Text(
                     "Current Location: ${it.latitude.formatDecimal(5)}° N, ${it.longitude.formatDecimal(5)}° E",
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
                 it.altitude?.let { alt ->
                     Text(
                         "Altitude: ${alt.formatDecimal(1)} m",
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onBackground
                     )
                 }
             }
@@ -116,7 +118,8 @@ fun MountainSpotterContent(
             compassData?.let {
                 Text(
                     "Compass: ${it.azimuth.formatDecimal(1)}°",
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
             }
 
@@ -125,7 +128,8 @@ fun MountainSpotterContent(
             // List of visible peaks section
             Text(
                 "Visible Peaks (${if (isLoading) "loading..." else visiblePeaks.size.toString()})",
-                style = MaterialTheme.typography.titleLarge
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onBackground
             )
 
             // Show loading indicator for peaks section only
@@ -139,7 +143,8 @@ fun MountainSpotterContent(
             } else if (visiblePeaks.isEmpty()) {
                 Text(
                     "No peaks found nearby. Try refreshing or move to a different location.",
-                    modifier = Modifier.padding(vertical = 16.dp)
+                    modifier = Modifier.padding(vertical = 16.dp),
+                    color = MaterialTheme.colorScheme.onBackground
                 )
             } else {
                 visiblePeaks.forEach { peak ->
@@ -194,20 +199,24 @@ fun PeakItem(peak: VisiblePeak) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 peak.peak.name,
-                style = MaterialTheme.typography.titleMedium
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 "Elevation: ${peak.peak.elevation.formatDecimal(0)} m",
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 "Distance: ${peak.distance.formatDecimal(1)} km",
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
             )
             peak.peak.country?.let {
                 Text(
                     "Country: $it",
-                    style = MaterialTheme.typography.bodySmall
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
         }
