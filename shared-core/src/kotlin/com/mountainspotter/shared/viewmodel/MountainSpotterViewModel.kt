@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MountainSpotterViewModel(
     private val locationService: LocationService,
@@ -80,23 +81,33 @@ class MountainSpotterViewModel(
         }
     }
     
-    private suspend fun updateVisiblePeaks(userLocation: Location) {
-        try {
-            _uiState.value = _uiState.value.copy(isLoading = true)
-            
-            val peaks = mountainRepository.getPeaksNearLocation(userLocation)
-            val visiblePeaks = calculationService.calculateVisiblePeaks(userLocation, peaks)
-            
-            _visiblePeaks.value = visiblePeaks
-            _uiState.value = _uiState.value.copy(
-                isLoading = false,
-                error = null
-            )
-        } catch (e: Exception) {
-            _uiState.value = _uiState.value.copy(
-                isLoading = false,
-                error = e.message
-            )
+    private fun updateVisiblePeaks(userLocation: Location) {
+        viewModelScope.launch {
+            try {
+                _uiState.value = _uiState.value.copy(isLoading = true)
+
+                // Execute network/IO operations on the IO dispatcher
+                val peaks = withContext(Dispatchers.IO) {
+                    mountainRepository.getPeaksNearLocation(userLocation)
+                }
+
+                // Execute calculations on the Default dispatcher for CPU-intensive work
+                val visiblePeaks = withContext(Dispatchers.Default) {
+                    calculationService.calculateVisiblePeaks(userLocation, peaks)
+                }
+
+                // Update UI state on the Main dispatcher (this is already on Main because of viewModelScope)
+                _visiblePeaks.value = visiblePeaks
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = null
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = e.message
+                )
+            }
         }
     }
     

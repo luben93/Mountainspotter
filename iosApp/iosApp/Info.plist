@@ -8,5 +8,9 @@
 	<string>Mountain Spotter needs your location to identify mountains visible from your current position.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Mountain Spotter needs your location to identify mountains visible from your current position.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Mountain Spotter needs camera access to show mountains in your view.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Mountain Spotter needs motion and compass access to determine which direction you're facing.</string>
 </dict>
 </plist>

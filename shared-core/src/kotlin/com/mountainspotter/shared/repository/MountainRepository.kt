@@ -2,6 +2,7 @@ package com.mountainspotter.shared.repository
 
 import com.mountainspotter.shared.model.MountainPeak
 import com.mountainspotter.shared.model.Location
+import kotlinx.coroutines.delay
 
 /**
  * Repository for mountain peak data
@@ -9,7 +10,7 @@ import com.mountainspotter.shared.model.Location
  */
 class MountainRepository {
     
-    // Sample data - the actual implementation is in the main shared module
+    // Sample data - simulate network delay for realistic behavior
     private val samplePeaks = listOf(
         MountainPeak(
             id = "mont_blanc",
@@ -65,19 +66,29 @@ class MountainRepository {
         location: Location,
         radiusKm: Double = 200.0
     ): List<MountainPeak> {
+        // Simulate network delay to test background threading
+        delay(1500)
+
+        println("MountainRepository: Fetching peaks near ${location.latitude}, ${location.longitude}")
+
         // In a real implementation, this would:
         // 1. Query a spatial database
         // 2. Call external APIs (OpenStreetMap Overpass, PeakBagger, etc.)
         // 3. Filter based on geographical bounds
         
-        // For now, return sample data
-        return samplePeaks
+        // For now, return sample data with some location-based filtering
+        return samplePeaks.filter { peak ->
+            val distance = calculateDistance(location, peak.location)
+            distance <= radiusKm
+        }
     }
     
     /**
      * Get all known peaks (for demo purposes)
      */
     suspend fun getAllPeaks(): List<MountainPeak> {
+        delay(1000) // Simulate network delay
+        println("MountainRepository: Fetching all peaks")
         return samplePeaks
     }
     
@@ -85,10 +96,32 @@ class MountainRepository {
      * Search peaks by name
      */
     suspend fun searchPeaks(query: String): List<MountainPeak> {
-        return samplePeaks.filter { 
+        delay(800) // Simulate network delay
+        println("MountainRepository: Searching peaks with query: $query")
+        return samplePeaks.filter {
             it.name.contains(query, ignoreCase = true) ||
             it.region?.contains(query, ignoreCase = true) == true ||
             it.country?.contains(query, ignoreCase = true) == true
         }
+    }
+
+    /**
+     * Calculate distance between two locations in km
+     */
+    private fun calculateDistance(loc1: Location, loc2: Location): Double {
+        val earthRadius = 6371.0 // Earth's radius in km
+
+        val lat1Rad = Math.toRadians(loc1.latitude)
+        val lat2Rad = Math.toRadians(loc2.latitude)
+        val deltaLatRad = Math.toRadians(loc2.latitude - loc1.latitude)
+        val deltaLonRad = Math.toRadians(loc2.longitude - loc1.longitude)
+
+        val a = kotlin.math.sin(deltaLatRad / 2) * kotlin.math.sin(deltaLatRad / 2) +
+                kotlin.math.cos(lat1Rad) * kotlin.math.cos(lat2Rad) *
+                kotlin.math.sin(deltaLonRad / 2) * kotlin.math.sin(deltaLonRad / 2)
+
+        val c = 2 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
+
+        return earthRadius * c
     }
 }

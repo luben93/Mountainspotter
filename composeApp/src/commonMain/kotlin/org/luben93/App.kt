@@ -10,7 +10,6 @@ import com.mountainspotter.shared.model.CompassData
 import com.mountainspotter.shared.model.Location
 import com.mountainspotter.shared.model.VisiblePeak
 import com.mountainspotter.shared.viewmodel.MountainSpotterViewModel
-import kotlinx.coroutines.flow.StateFlow
 
 @Composable
 fun App() {
@@ -20,12 +19,23 @@ fun App() {
     val compassData by viewModel.compassData.collectAsState(initial = null)
     val currentLocation by viewModel.currentLocation.collectAsState(initial = null)
 
+    // Track whether to show camera view
+    var showCameraView by remember { mutableStateOf(false) }
+
     MaterialTheme {
         Box(modifier = Modifier.fillMaxSize()) {
             if (!uiState.hasLocationPermission) {
                 PermissionRequest(
                     onRequestPermission = { viewModel.requestLocationPermission() },
                     onOpenSettings = { viewModel.openAppSettings() }
+                )
+            } else if (showCameraView) {
+                // Camera View
+                CameraView(
+                    visiblePeaks = visiblePeaks,
+                    currentLocation = currentLocation,
+                    compassData = compassData,
+                    onBack = { showCameraView = false }
                 )
             } else {
                 MountainSpotterContent(
@@ -35,12 +45,13 @@ fun App() {
                     currentLocation = currentLocation,
                     onRefresh = { viewModel.refresh() },
                     errorMessage = uiState.error,
-                    onClearError = { viewModel.clearError() }
+                    onClearError = { viewModel.clearError() },
+                    onOpenCamera = { showCameraView = true }
                 )
             }
         }
     }
-    
+
     // Cleanup when the composable leaves composition
     DisposableEffect(Unit) {
         onDispose {
@@ -79,13 +90,15 @@ fun MountainSpotterContent(
     currentLocation: Location?,
     onRefresh: () -> Unit,
     errorMessage: String?,
-    onClearError: () -> Unit
+    onClearError: () -> Unit,
+    onOpenCamera: () -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.fillMaxSize().padding(16.dp)
         ) {
-            // Header with location info
+            // Header with location info - Always show this when available
+            // regardless of whether peaks are loading
             currentLocation?.let {
                 Text(
                     "Current Location: ${it.latitude.formatDecimal(5)}° N, ${it.longitude.formatDecimal(5)}° E",
@@ -98,26 +111,31 @@ fun MountainSpotterContent(
                     )
                 }
             }
-            
+
+            // Always show compass data when available, regardless of loading state
             compassData?.let {
                 Text(
                     "Compass: ${it.azimuth.formatDecimal(1)}°",
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
-            
+
             Spacer(Modifier.height(16.dp))
-            
-            // List of visible peaks
+
+            // List of visible peaks section
             Text(
-                "Visible Peaks (${visiblePeaks.size})",
+                "Visible Peaks (${if (isLoading) "loading..." else visiblePeaks.size.toString()})",
                 style = MaterialTheme.typography.titleLarge
             )
-            
+
+            // Show loading indicator for peaks section only
             if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(16.dp)
-                )
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(100.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
             } else if (visiblePeaks.isEmpty()) {
                 Text(
                     "No peaks found nearby. Try refreshing or move to a different location.",
@@ -129,16 +147,29 @@ fun MountainSpotterContent(
                 }
             }
         }
-        
-        // Floating action button for refresh
-        FloatingActionButton(
-            onClick = onRefresh,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
+
+        // Action buttons
+        Row(
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Replace with appropriate icon
-            Text("↻")
+            // Camera button
+            FloatingActionButton(
+                onClick = onOpenCamera
+            ) {
+                // Replace with appropriate icon
+                Text("📷")
+            }
+
+            // Refresh button
+            FloatingActionButton(
+                onClick = onRefresh
+            ) {
+                // Replace with appropriate icon
+                Text("↻")
+            }
         }
-        
+
         // Error message
         errorMessage?.let {
             AlertDialog(
