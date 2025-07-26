@@ -81,7 +81,7 @@ class MountainRepository {
      */
     suspend fun getPeaksNearLocation(
         location: Location,
-        radiusKm: Double = 400.0
+        radiusKm: Double = 50.0
     ): List<MountainPeak> {
         try {
             // Check if we can use cached data

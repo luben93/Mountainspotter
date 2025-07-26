@@ -43,7 +43,7 @@ object UnifiedSensorManager {
 
         delegate = UnifiedSensorDelegate(
             onLocationUpdate = { location ->
-                println("UnifiedSensorManager: Location update: $location")
+//                println("UnifiedSensorManager: Location update: $location")
                 _locationFlow.tryEmit(location)
             },
             onCompassUpdate = { compassData ->
@@ -138,7 +138,7 @@ private class UnifiedSensorDelegate(
     }
 
     override fun locationManager(manager: CLLocationManager, didUpdateLocations: List<*>) {
-        println("UnifiedSensorDelegate: didUpdateLocations called")
+//        println("UnifiedSensorDelegate: didUpdateLocations called")
         val locations = didUpdateLocations as List<CLLocation>
         locations.lastOrNull()?.let { clLocation ->
             val location = Location(
@@ -146,14 +146,14 @@ private class UnifiedSensorDelegate(
                 longitude = clLocation.coordinate.useContents { longitude },
                 altitude = if (clLocation.altitude > -1000.0) clLocation.altitude else null
             )
-            println("UnifiedSensorDelegate: Location: lat=${location.latitude}, lon=${location.longitude}, alt=${location.altitude}")
+//            println("UnifiedSensorDelegate: Location: lat=${location.latitude}, lon=${location.longitude}, alt=${location.altitude}")
             onLocationUpdate(location)
         }
     }
 
     override fun locationManager(manager: CLLocationManager, didUpdateHeading: CLHeading) {
         val azimuth = didUpdateHeading.trueHeading.toFloat()
-        println("UnifiedSensorDelegate: Heading: $azimuth degrees")
+//        println("UnifiedSensorDelegate: Heading: $azimuth degrees")
 
         if (azimuth >= 0) {
             val compassData = CompassData(
@@ -161,18 +161,18 @@ private class UnifiedSensorDelegate(
                 pitch = lastPitch,
                 roll = lastRoll
             )
-            println("UnifiedSensorDelegate: Compass: azimuth=$azimuth, pitch=$lastPitch, roll=$lastRoll")
+//            println("UnifiedSensorDelegate: Compass: azimuth=$azimuth, pitch=$lastPitch, roll=$lastRoll")
             onCompassUpdate(compassData)
         }
     }
 
     override fun locationManager(manager: CLLocationManager, didFailWithError: NSError) {
-        println("UnifiedSensorDelegate: Error: ${didFailWithError.localizedDescription}")
+//        println("UnifiedSensorDelegate: Error: ${didFailWithError.localizedDescription}")
         onLocationUpdate(null)
     }
 
     override fun locationManager(manager: CLLocationManager, didChangeAuthorizationStatus: CLAuthorizationStatus) {
-        println("UnifiedSensorDelegate: Auth status changed to: $didChangeAuthorizationStatus")
+//        println("UnifiedSensorDelegate: Auth status changed to: $didChangeAuthorizationStatus")
         when (didChangeAuthorizationStatus) {
             kCLAuthorizationStatusAuthorizedWhenInUse,
             kCLAuthorizationStatusAuthorizedAlways -> {
@@ -200,7 +200,7 @@ private class UnifiedSensorDelegate(
 
 actual class LocationService {
     actual fun startLocationUpdates(): Flow<Location?> = callbackFlow {
-        println("LocationService: Starting location updates")
+//        println("LocationService: Starting location updates")
 
         // Start the unified sensor manager
         UnifiedSensorManager.startSensors()
@@ -208,7 +208,7 @@ actual class LocationService {
         // Use launchIn instead of collect to avoid blocking
         val job = UnifiedSensorManager.locationFlow
             .onEach { location ->
-                println("LocationService: Emitting location: $location")
+//                println("LocationService: Emitting location: $location")
                 trySend(location)
             }
             .launchIn(this)
@@ -240,7 +240,7 @@ actual class LocationService {
 
 actual class CompassService {
     actual fun startCompassUpdates(): Flow<CompassData> = callbackFlow {
-        println("CompassService: Starting compass updates")
+//        println("CompassService: Starting compass updates")
 
         if (!isCompassAvailable()) {
             println("CompassService: Compass not available")
@@ -254,7 +254,7 @@ actual class CompassService {
         // Use launchIn instead of collect to avoid blocking
         val job = UnifiedSensorManager.compassFlow
             .onEach { compassData ->
-                println("CompassService: Emitting compass data: $compassData")
+//                println("CompassService: Emitting compass data: $compassData")
                 trySend(compassData)
             }
             .launchIn(this)

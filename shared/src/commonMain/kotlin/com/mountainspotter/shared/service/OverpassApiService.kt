@@ -25,14 +25,23 @@ class OverpassApiService(private val httpClient: HttpClient) {
     ): List<MountainPeak> {
         try {
             val bbox = calculateBoundingBox(location, radiusKm)
-            val query = buildOverpassQuery(bbox)
-            
+            val query = buildOverpassQuery(bbox, location.altitude)
+            println("Overpass query: $query to $baseUrl")
             val response = httpClient.post(baseUrl) {
                 contentType(ContentType.Application.FormUrlEncoded)
+                accept(ContentType.Application.Json)
                 setBody("data=$query")
             }
             
             val responseText = response.bodyAsText()
+
+            if (response.status != HttpStatusCode.OK || responseText.startsWith("<")) {
+                println("Error fetching peaks: Received non-JSON response from Overpass API.")
+                println("Status: ${response.status}")
+                println("Response: $responseText")
+                return emptyList()
+            }
+
             val overpassResponse = json.decodeFromString<OverpassResponse>(responseText)
             
             return overpassResponse.elements.mapNotNull { element ->
@@ -41,6 +50,7 @@ class OverpassApiService(private val httpClient: HttpClient) {
         } catch (e: Exception) {
             // Log error in real implementation
             println("Error fetching peaks: ${e.message}")
+            e.printStackTrace()
             return emptyList()
         }
     }
@@ -67,13 +77,12 @@ class OverpassApiService(private val httpClient: HttpClient) {
     /**
      * Build Overpass API query for mountain peaks within bounding box
      */
-    private fun buildOverpassQuery(bbox: BoundingBox): String {
+    private fun buildOverpassQuery(bbox: BoundingBox, minElevation: Double?): String {
+
         return """
             [out:json][timeout:25];
             (
               node["natural"="peak"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
-              way["natural"="peak"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
-              relation["natural"="peak"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
             );
             out geom;
         """.trimIndent()
