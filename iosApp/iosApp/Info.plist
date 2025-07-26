@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Mountain Spotter needs your location to identify mountains visible from your current position.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Mountain Spotter needs your location to identify mountains visible from your current position.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Mountain Spotter needs camera access to show mountains in your view.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Mountain Spotter needs motion and compass access to determine which direction you're facing.</string>
+</dict>
+</plist>
