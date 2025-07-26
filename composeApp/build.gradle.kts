@@ -46,10 +46,22 @@ kotlin {
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.androidx.lifecycle.runtimeCompose)
 
-            // Add dependencies to shared modules
-            implementation(projects.shared)
-            implementation(projects.sharedCore)
+            // Add dependencies to shared modules as API dependencies
+            api(projects.shared)
+            api(projects.sharedCore)
         }
+
+        // Configure iOS source sets
+        val iosX64Main by getting
+        val iosArm64Main by getting
+        val iosSimulatorArm64Main by getting
+        val iosMain by creating {
+            dependsOn(commonMain.get())
+            iosX64Main.dependsOn(this)
+            iosArm64Main.dependsOn(this)
+            iosSimulatorArm64Main.dependsOn(this)
+        }
+
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }

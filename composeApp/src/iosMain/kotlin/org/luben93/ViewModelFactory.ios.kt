@@ -20,15 +20,15 @@ actual fun getViewModel(): MountainSpotterViewModel {
 
 // Implement expect functions from ViewModelFactory.kt
 actual fun getLocationService(): LocationService {
-    return com.mountainspotter.shared.platform.IOSLocationService()
+    return LocationService()
 }
 
 actual fun getCompassService(): CompassService {
-    return com.mountainspotter.shared.platform.IOSCompassService()
+    return CompassService()
 }
 
 actual fun getPermissionManager(): PermissionManager {
-    return com.mountainspotter.shared.platform.IOSPermissionManager()
+    return PermissionManager()
 }
 
 actual fun getMountainRepository(): MountainRepository {

@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MountainSpotterViewModel(
     private val locationService: LocationService,
@@ -19,6 +20,9 @@ class MountainSpotterViewModel(
     private val mountainRepository: MountainRepository,
     private val calculationService: MountainCalculationService
 ) {
+    // Define a dedicated IO dispatcher for background operations
+    private val ioDispatcher = Dispatchers.Default
+
     private val viewModelScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     
     private val _uiState = MutableStateFlow(MountainSpotterUiState())
@@ -84,9 +88,16 @@ class MountainSpotterViewModel(
         try {
             _uiState.value = _uiState.value.copy(isLoading = true)
             
-            val peaks = mountainRepository.getPeaksNearLocation(userLocation)
-            val visiblePeaks = calculationService.calculateVisiblePeaks(userLocation, peaks)
-            
+            // Use withContext to move network operations to background thread
+            val peaks = withContext(ioDispatcher) {
+                mountainRepository.getPeaksNearLocation(userLocation)
+            }
+
+            // Run calculation on background thread as well
+            val visiblePeaks = withContext(ioDispatcher) {
+                calculationService.calculateVisiblePeaks(userLocation, peaks)
+            }
+
             _visiblePeaks.value = visiblePeaks
             _uiState.value = _uiState.value.copy(
                 isLoading = false,

@@ -4,7 +4,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidLibrary)
-//    alias(libs.plugins.kotlinxSerialization)
+    kotlin("plugin.serialization") version "2.2.0"
 }
 
 kotlin {
