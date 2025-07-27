@@ -88,6 +88,18 @@ actual fun CameraPreview(
         }
     }
 
+    // Cleanup on component disposal
+    DisposableEffect(Unit) {
+        onDispose {
+            println("CameraPreview: Disposing component")
+            captureSession?.let { session ->
+                if (session.running) {
+                    session.stopRunning()
+                }
+            }
+        }
+    }
+
     if (permissionGranted && sessionRunning && previewLayer != null) {
         UIKitView(
             modifier = modifier,
@@ -129,7 +141,13 @@ actual fun CameraPreview(
             onRelease = { view ->
                 println("CameraPreview: Releasing camera view")
                 previewLayer?.removeFromSuperlayer()
-                captureSession?.stopRunning()
+                captureSession?.let { session ->
+                    if (session.running) {
+                        session.stopRunning()
+                    }
+                }
+                captureSession = null
+                previewLayer = null
             }
         )
     } else if (!permissionGranted) {
@@ -223,14 +241,17 @@ private suspend fun setupCameraSession(
     val previewLayer = AVCaptureVideoPreviewLayer(session = session)
     previewLayer.videoGravity = AVLayerVideoGravityResizeAspectFill
     
-    // Ensure layer connection is properly set up
+    // Ensure layer connection is properly set up for iOS
     previewLayer.connection?.let { connection ->
         if (connection.isVideoOrientationSupported) {
             connection.videoOrientation = AVCaptureVideoOrientationPortrait
         }
+        if (connection.isVideoMirroringSupported && position == AVCaptureDevicePositionFront) {
+            connection.isVideoMirrored = true
+        }
     }
     
-    println("setupCameraSession: Created preview layer")
+    println("setupCameraSession: Created preview layer with orientation support")
 
     // Start session
     try {
