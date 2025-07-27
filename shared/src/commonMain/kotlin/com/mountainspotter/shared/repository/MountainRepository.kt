@@ -45,46 +45,44 @@ class MountainRepository {
         location: Location,
         radiusKm: Double = 50.0
     ): List<MountainPeak> {
+        // Check if we can use cached data
+        if (shouldUseCachedData(location, radiusKm)) {
+            return cachedPeaks
+        }
+
+        // First, check if we have coverage in our fallback data
+        val localPeaks = getPeaksFromFallbackData(location, radiusKm)
+        if (localPeaks.isNotEmpty()) {
+            // If local peaks are found, cache and return them
+            cachedPeaks = localPeaks
+            lastLocation = location
+            lastRadius = radiusKm
+            return localPeaks
+        }
+
+        // If no local peaks, try fetching from the API
         try {
-            // Check if we can use cached data
-            if (shouldUseCachedData(location, radiusKm)) {
-                return cachedPeaks
-            }
-            
-            // Fetch peaks from Overpass API
-            val peaks = overpassApiService.getPeaksNearLocation(location, radiusKm)
-            
-            // If we got peaks from the API, fetch and cache images
-            val peaksWithImages = if (peaks.isNotEmpty()) {
-                imageCacheService.fetchAndCacheImages(peaks)
+            val apiPeaks = overpassApiService.getPeaksNearLocation(location, radiusKm)
+
+            val peaksToCache = if (apiPeaks.isNotEmpty()) {
+                // If API returns peaks, fetch images and prepare for caching
+                imageCacheService.fetchAndCacheImages(apiPeaks)
             } else {
-                // Check if we have coverage in our fallback data first
-                val localPeaks = getPeaksFromFallbackData(location, radiusKm)
-                if (localPeaks.isNotEmpty()) {
-                    localPeaks
-                } else {
-                    // No local coverage, use all fallback data
-                    fallbackPeaks
-                }
+                // If API is empty, use all fallback peaks as a last resort
+                fallbackPeaks
             }
-            
-            // Update cache
-            cachedPeaks = peaksWithImages
+
+            // Update cache with the result (either from API or all fallback)
+            cachedPeaks = peaksToCache
             lastLocation = location
             lastRadius = radiusKm
             
-            return peaksWithImages
-            
+            return peaksToCache
+
         } catch (e: Exception) {
-            println("Error fetching peaks from API, using fallback data: ${e.message}")
-            // Check if we have coverage in our fallback data first
-            val localPeaks = getPeaksFromFallbackData(location, radiusKm)
-            return if (localPeaks.isNotEmpty()) {
-                localPeaks
-            } else {
-                // No local coverage, use all fallback data
-                fallbackPeaks
-            }
+            println("Error fetching peaks from API, using all fallback data: ${e.message}")
+            // In case of API error, use all fallback peaks
+            return fallbackPeaks
         }
     }
     

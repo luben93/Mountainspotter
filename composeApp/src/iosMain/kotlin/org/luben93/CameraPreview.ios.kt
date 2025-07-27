@@ -8,22 +8,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.interop.UIKitView
 import kotlinx.cinterop.*
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.AVFoundation.*
-import platform.CoreGraphics.CGRect
-import platform.CoreGraphics.CGRectZero
-import platform.CoreGraphics.CGRectMake
-import platform.Foundation.NSNotificationCenter
-import platform.Foundation.NSOperationQueue
 import platform.Foundation.NSError
 import platform.QuartzCore.CATransaction
 import platform.QuartzCore.kCATransactionDisableActions
 import platform.UIKit.*
 
-@OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
+@OptIn(ExperimentalForeignApi::class, ExperimentalCoroutinesApi::class)
 @Composable
 actual fun CameraPreview(
     modifier: Modifier,
@@ -50,12 +45,12 @@ actual fun CameraPreview(
             AVAuthorizationStatusNotDetermined -> {
                 println("CameraPreview: Requesting camera permission")
                 // Use suspendCancellableCoroutine for proper async handling
-                permissionGranted = kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
+                permissionGranted = suspendCancellableCoroutine { continuation ->
                     AVCaptureDevice.requestAccessForMediaType(AVMediaTypeVideo) { granted ->
                         println("CameraPreview: Permission result: $granted")
                         // Resume on main thread to ensure proper state updates
-                        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.Main) {
-                            continuation.resume(granted) {}
+                        launch(Dispatchers.Main) {
+                            continuation.resume(granted, onCancellation = {})
                         }
                     }
                 }
@@ -119,8 +114,8 @@ actual fun CameraPreview(
                     view.layer.addSublayer(layer)
                     
                     // Make sure the layer is properly configured
-                    layer.videoGravity = platform.AVFoundation.AVLayerVideoGravityResizeAspectFill
-                    
+                    layer.videoGravity = AVLayerVideoGravityResizeAspectFill
+
                     println("CameraPreview: Added preview layer to view")
                 }
 
@@ -130,12 +125,12 @@ actual fun CameraPreview(
                 // Update preview layer frame when view bounds change
                 previewLayer?.let { layer ->
                     val bounds = view.bounds
-                    println("CameraPreview: Updating layer frame to bounds: width=${bounds.size.width}, height=${bounds.size.height}")
-                    
-                    platform.QuartzCore.CATransaction.begin()
-                    platform.QuartzCore.CATransaction.setValue(true, platform.QuartzCore.kCATransactionDisableActions)
+                    println("CameraPreview: Updating layer frame to bounds: width=${bounds.useContents { size.width }}, height=${bounds.useContents { size.height }}")
+
+                    CATransaction.begin()
+                    CATransaction.setValue(true, kCATransactionDisableActions)
                     layer.frame = bounds
-                    platform.QuartzCore.CATransaction.commit()
+                    CATransaction.commit()
                 }
             },
             onRelease = { view ->
@@ -177,7 +172,7 @@ actual fun CameraPreview(
 
 }
 
-@OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
+@OptIn(ExperimentalForeignApi::class)
 private suspend fun setupCameraSession(
     cameraPosition: AVCaptureDevicePosition
 ): Pair<AVCaptureSession, AVCaptureVideoPreviewLayer> = withContext(Dispatchers.Default) {
@@ -213,6 +208,7 @@ private suspend fun setupCameraSession(
     println("setupCameraSession: Found device: ${device.localizedName}")
 
     // Create input
+    @OptIn(BetaInteropApi::class)
     val input = memScoped {
         val errorPtr = alloc<ObjCObjectVar<NSError?>>()
         val result = AVCaptureDeviceInput.deviceInputWithDevice(device, errorPtr.ptr)
@@ -243,11 +239,11 @@ private suspend fun setupCameraSession(
     
     // Ensure layer connection is properly set up for iOS
     previewLayer.connection?.let { connection ->
-        if (connection.isVideoOrientationSupported) {
+        if (connection.isVideoOrientationSupported()) {
             connection.videoOrientation = AVCaptureVideoOrientationPortrait
         }
-        if (connection.isVideoMirroringSupported && position == AVCaptureDevicePositionFront) {
-            connection.isVideoMirrored = true
+        if (connection.isVideoMirroringSupported() && cameraPosition == AVCaptureDevicePositionFront) {
+            connection.videoMirrored = true
         }
     }
     
@@ -269,7 +265,7 @@ private suspend fun setupCameraSession(
     return@withContext Pair(session, previewLayer)
 }
 
-@OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
+@OptIn(ExperimentalForeignApi::class)
 private fun findCameraDevice(position: AVCaptureDevicePosition): AVCaptureDevice? {
     // Try different device types in order of preference
     val deviceTypesToTry = listOf(
@@ -287,7 +283,7 @@ private fun findCameraDevice(position: AVCaptureDevicePosition): AVCaptureDevice
                 position = position
             )
             
-            val device = discoverySession?.devices?.firstOrNull {
+            val device = discoverySession.devices.firstOrNull {
                 (it as? AVCaptureDevice)?.position == position
             } as? AVCaptureDevice
             
@@ -312,5 +308,3 @@ private fun findCameraDevice(position: AVCaptureDevicePosition): AVCaptureDevice
         return null
     }
 }
-
-
