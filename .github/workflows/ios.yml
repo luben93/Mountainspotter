@@ -48,20 +48,27 @@ jobs:
     - name: Build iOS App for Simulator
       run: |
         cd iosApp
-        xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' build || echo "Simulator build failed, but continuing..."
+        echo "Building iOS app for simulator..."
+        xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' build
         
     - name: Build iOS App for Device (Archive)
       run: |
         cd iosApp
-        xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration Release -destination 'generic/platform=iOS' -archivePath iosApp.xcarchive archive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO || echo "Device archive failed, but continuing..."
+        echo "Creating iOS archive for device..."
+        xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration Release -destination 'generic/platform=iOS' -archivePath iosApp.xcarchive archive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
         
     - name: Export IPA
       run: |
         cd iosApp
         if [ -d "iosApp.xcarchive" ]; then
-          xcodebuild -exportArchive -archivePath iosApp.xcarchive -exportPath . -exportOptionsPlist ExportOptions.plist || echo "Export failed, but archive was created successfully"
+          echo "Archive found, attempting to export IPA..."
+          xcodebuild -exportArchive -archivePath iosApp.xcarchive -exportPath . -exportOptionsPlist ExportOptions.plist
+          echo "IPA export completed"
         else
-          echo "No archive found, skipping IPA export"
+          echo "ERROR: No archive found at iosApp.xcarchive"
+          echo "Available files in iosApp directory:"
+          ls -la
+          exit 1
         fi
         
     - name: Upload iOS build artifacts
@@ -72,4 +79,4 @@ jobs:
           iosApp/iosApp.xcarchive
           iosApp/*.ipa
         retention-days: 30
-        if-no-files-found: warn
+        if-no-files-found: error
