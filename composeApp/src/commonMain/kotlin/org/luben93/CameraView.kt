@@ -19,6 +19,7 @@ import com.mountainspotter.shared.model.VisiblePeak
 @Composable
 expect fun CameraPreview(
     modifier: Modifier = Modifier,
+    isFrontCamera: Boolean = false,
     onSwitchCamera: () -> Unit
 )
 
@@ -35,6 +36,7 @@ fun CameraView(
         // Camera Preview
         CameraPreview(
             modifier = Modifier.fillMaxSize(),
+            isFrontCamera = isFrontCamera,
             onSwitchCamera = { isFrontCamera = !isFrontCamera }
         )
 

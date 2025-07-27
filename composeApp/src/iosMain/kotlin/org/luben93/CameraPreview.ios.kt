@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.AVFoundation.*
 import platform.CoreGraphics.CGRect
 import platform.CoreGraphics.CGRectZero
@@ -26,11 +27,12 @@ import platform.UIKit.*
 @Composable
 actual fun CameraPreview(
     modifier: Modifier,
+    isFrontCamera: Boolean,
     onSwitchCamera: () -> Unit
 ) {
     var captureSession by remember { mutableStateOf<AVCaptureSession?>(null) }
     var previewLayer by remember { mutableStateOf<AVCaptureVideoPreviewLayer?>(null) }
-    var cameraPosition by remember { mutableStateOf(AVCaptureDevicePositionBack) }
+    val cameraPosition = if (isFrontCamera) AVCaptureDevicePositionFront else AVCaptureDevicePositionBack
     var permissionGranted by remember { mutableStateOf(false) }
     var sessionRunning by remember { mutableStateOf(false) }
 
@@ -47,9 +49,15 @@ actual fun CameraPreview(
             }
             AVAuthorizationStatusNotDetermined -> {
                 println("CameraPreview: Requesting camera permission")
-                AVCaptureDevice.requestAccessForMediaType(AVMediaTypeVideo) { granted ->
-                    println("CameraPreview: Permission result: $granted")
-                    permissionGranted = granted
+                // Use suspendCancellableCoroutine for proper async handling
+                permissionGranted = kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
+                    AVCaptureDevice.requestAccessForMediaType(AVMediaTypeVideo) { granted ->
+                        println("CameraPreview: Permission result: $granted")
+                        // Resume on main thread to ensure proper state updates
+                        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                            continuation.resume(granted) {}
+                        }
+                    }
                 }
             }
             else -> {
@@ -59,11 +67,15 @@ actual fun CameraPreview(
         }
     }
 
-    // Setup camera when permission is granted
+    // Setup camera when permission is granted or camera position changes
     LaunchedEffect(permissionGranted, cameraPosition) {
         if (permissionGranted) {
-            println("CameraPreview: Setting up camera session")
+            println("CameraPreview: Setting up camera session for position $cameraPosition")
             try {
+                // Stop previous session if running
+                captureSession?.stopRunning()
+                sessionRunning = false
+                
                 val (session, layer) = setupCameraSession(cameraPosition)
                 captureSession = session
                 previewLayer = layer
@@ -71,6 +83,7 @@ actual fun CameraPreview(
                 println("CameraPreview: Camera session setup complete")
             } catch (e: Exception) {
                 println("CameraPreview: Error setting up camera: $e")
+                sessionRunning = false
             }
         }
     }
@@ -83,8 +96,8 @@ actual fun CameraPreview(
                 val view = UIView()
                 view.backgroundColor = UIColor.blackColor
                 
-                // Ensure the view has a proper frame initially
-                view.setFrame(platform.CoreGraphics.CGRectMake(0.0, 0.0, 300.0, 400.0))
+                // Don't set a fixed frame - let the modifier handle sizing
+                view.autoresizingMask = UIViewAutoresizingFlexibleWidth or UIViewAutoresizingFlexibleHeight
 
                 // Add preview layer and configure it properly
                 previewLayer?.let { layer ->
@@ -93,13 +106,10 @@ actual fun CameraPreview(
                     
                     view.layer.addSublayer(layer)
                     
-                    // Set initial frame
-                    layer.frame = view.bounds
-                    
                     // Make sure the layer is properly configured
                     layer.videoGravity = platform.AVFoundation.AVLayerVideoGravityResizeAspectFill
                     
-                    println("CameraPreview: Added preview layer to view with frame: ${view.bounds}")
+                    println("CameraPreview: Added preview layer to view")
                 }
 
                 view
@@ -107,11 +117,13 @@ actual fun CameraPreview(
             update = { view ->
                 // Update preview layer frame when view bounds change
                 previewLayer?.let { layer ->
+                    val bounds = view.bounds
+                    println("CameraPreview: Updating layer frame to bounds: width=${bounds.size.width}, height=${bounds.size.height}")
+                    
                     platform.QuartzCore.CATransaction.begin()
                     platform.QuartzCore.CATransaction.setValue(true, platform.QuartzCore.kCATransactionDisableActions)
-                    layer.frame = view.bounds
+                    layer.frame = bounds
                     platform.QuartzCore.CATransaction.commit()
-                    println("CameraPreview: Updated preview layer frame to ${view.bounds}")
                 }
             },
             onRelease = { view ->
@@ -144,119 +156,140 @@ actual fun CameraPreview(
         }
     }
 
-    // Handle camera switch button press
-    LaunchedEffect(onSwitchCamera) {
-        // This will be called when the switch button is pressed
-    }
+
 }
 
 @OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
 private suspend fun setupCameraSession(
     cameraPosition: AVCaptureDevicePosition
-): Pair<AVCaptureSession, AVCaptureVideoPreviewLayer> {
+): Pair<AVCaptureSession, AVCaptureVideoPreviewLayer> = withContext(Dispatchers.Default) {
     println("setupCameraSession: Starting setup for position $cameraPosition")
 
     val session = AVCaptureSession()
 
     // Configure session preset first
     session.beginConfiguration()
-    if (session.canSetSessionPreset(AVCaptureSessionPresetHigh)) {
-        session.sessionPreset = AVCaptureSessionPresetHigh
-        println("setupCameraSession: Set preset to high quality")
+    
+    // Try different presets in order of preference
+    val presets = listOf(
+        AVCaptureSessionPresetHigh,
+        AVCaptureSessionPresetMedium,
+        AVCaptureSessionPreset640x480
+    )
+    
+    for (preset in presets) {
+        if (session.canSetSessionPreset(preset)) {
+            session.sessionPreset = preset
+            println("setupCameraSession: Set preset to $preset")
+            break
+        }
     }
 
-    // Find camera device
-    val deviceTypes = listOf(
-        AVCaptureDeviceTypeBuiltInWideAngleCamera,
-        AVCaptureDeviceTypeBuiltInDualCamera,
-        AVCaptureDeviceTypeBuiltInTripleCamera
-    )
-
-    val discoverySession = AVCaptureDeviceDiscoverySession.discoverySessionWithDeviceTypes(
-        deviceTypes = deviceTypes,
-        mediaType = AVMediaTypeVideo,
-        position = cameraPosition
-    )
-
-    val device = discoverySession?.devices?.firstOrNull {
-        (it as? AVCaptureDevice)?.position == cameraPosition
-    } as? AVCaptureDevice
-
+    // Find camera device - use a more robust approach
+    val device = findCameraDevice(cameraPosition)
     if (device == null) {
-        println("setupCameraSession: No camera device found for position $cameraPosition")
-        throw RuntimeException("No camera device found")
+        session.commitConfiguration()
+        throw RuntimeException("No camera device found for position $cameraPosition")
     }
 
     println("setupCameraSession: Found device: ${device.localizedName}")
 
     // Create input
-    memScoped {
+    val input = memScoped {
         val errorPtr = alloc<ObjCObjectVar<NSError?>>()
-        val input = AVCaptureDeviceInput.deviceInputWithDevice(device, errorPtr.ptr)
-
-        if (input == null) {
+        val result = AVCaptureDeviceInput.deviceInputWithDevice(device, errorPtr.ptr)
+        
+        if (result == null) {
             val error = errorPtr.value
             println("setupCameraSession: Failed to create input: ${error?.localizedDescription}")
-            throw RuntimeException("Failed to create camera input")
+            session.commitConfiguration()
+            throw RuntimeException("Failed to create camera input: ${error?.localizedDescription}")
         }
-
-        if (!session.canAddInput(input)) {
-            println("setupCameraSession: Cannot add input to session")
-            throw RuntimeException("Cannot add input to session")
-        }
-
-        session.addInput(input)
-        println("setupCameraSession: Added input to session")
+        
+        result
     }
+
+    if (!session.canAddInput(input)) {
+        session.commitConfiguration()
+        throw RuntimeException("Cannot add input to session")
+    }
+
+    session.addInput(input)
+    println("setupCameraSession: Added input to session")
 
     session.commitConfiguration()
 
-    // Create preview layer
+    // Create preview layer with proper configuration
     val previewLayer = AVCaptureVideoPreviewLayer(session = session)
     previewLayer.videoGravity = AVLayerVideoGravityResizeAspectFill
+    
+    // Ensure layer connection is properly set up
+    previewLayer.connection?.let { connection ->
+        if (connection.isVideoOrientationSupported) {
+            connection.videoOrientation = AVCaptureVideoOrientationPortrait
+        }
+    }
+    
     println("setupCameraSession: Created preview layer")
 
-    // Start session on background queue to avoid blocking UI
-    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+    // Start session
+    try {
+        if (!session.running) {
+            session.startRunning()
+            println("setupCameraSession: Session started running: ${session.running}")
+        } else {
+            println("setupCameraSession: Session was already running")
+        }
+    } catch (e: Exception) {
+        println("setupCameraSession: Error starting session: $e")
+        throw e
+    }
+
+    return@withContext Pair(session, previewLayer)
+}
+
+@OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
+private fun findCameraDevice(position: AVCaptureDevicePosition): AVCaptureDevice? {
+    // Try different device types in order of preference
+    val deviceTypesToTry = listOf(
+        AVCaptureDeviceTypeBuiltInWideAngleCamera,
+        AVCaptureDeviceTypeBuiltInDualCamera,
+        AVCaptureDeviceTypeBuiltInTripleCamera,
+        AVCaptureDeviceTypeBuiltInDualWideCamera
+    )
+    
+    for (deviceType in deviceTypesToTry) {
         try {
-            if (!session.running) {
-                session.startRunning()
-                println("setupCameraSession: Session started running: ${session.running}")
-            } else {
-                println("setupCameraSession: Session was already running")
+            val discoverySession = AVCaptureDeviceDiscoverySession.discoverySessionWithDeviceTypes(
+                deviceTypes = listOf(deviceType),
+                mediaType = AVMediaTypeVideo,
+                position = position
+            )
+            
+            val device = discoverySession?.devices?.firstOrNull {
+                (it as? AVCaptureDevice)?.position == position
+            } as? AVCaptureDevice
+            
+            if (device != null) {
+                println("findCameraDevice: Found device type $deviceType for position $position")
+                return device
             }
         } catch (e: Exception) {
-            println("setupCameraSession: Error starting session: $e")
-            throw e
+            println("findCameraDevice: Failed to find device type $deviceType: $e")
+            continue
         }
     }
-
-    return Pair(session, previewLayer)
-}
-
-// Function to switch camera (to be called from button press)
-@OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
-fun switchCameraPosition(
-    currentSession: AVCaptureSession?,
-    currentPosition: AVCaptureDevicePosition,
-    onComplete: (AVCaptureSession, AVCaptureVideoPreviewLayer, AVCaptureDevicePosition) -> Unit
-) {
-    val newPosition = if (currentPosition == AVCaptureDevicePositionFront) {
-        AVCaptureDevicePositionBack
-    } else {
-        AVCaptureDevicePositionFront
-    }
-
-    println("switchCameraPosition: Switching from $currentPosition to $newPosition")
-
-    currentSession?.stopRunning()
-
-    kotlinx.coroutines.GlobalScope.launch {
-        try {
-            val (newSession, newLayer) = setupCameraSession(newPosition)
-            onComplete(newSession, newLayer, newPosition)
-        } catch (e: Exception) {
-            println("switchCameraPosition: Error switching camera: $e")
-        }
+    
+    // Fallback: try to get default device for position
+    try {
+        val allDevices = AVCaptureDevice.devicesWithMediaType(AVMediaTypeVideo)
+        return allDevices.firstOrNull {
+            (it as? AVCaptureDevice)?.position == position
+        } as? AVCaptureDevice
+    } catch (e: Exception) {
+        println("findCameraDevice: Failed to get default device: $e")
+        return null
     }
 }
+
+

@@ -24,15 +24,34 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 @Composable
 actual fun CameraPreview(
     modifier: Modifier,
+    isFrontCamera: Boolean,
     onSwitchCamera: () -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    var cameraSelector by remember { mutableStateOf(CameraSelector.DEFAULT_BACK_CAMERA) }
+    val cameraSelector = if (isFrontCamera) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
     
     // Handle camera switch
-    LaunchedEffect(onSwitchCamera) {
-        // This will be called when switch button is pressed
+    var previewView: PreviewView? by remember { mutableStateOf(null) }
+
+    // Update camera when selector changes
+    LaunchedEffect(cameraSelector, cameraProvider) {
+        if (cameraProvider != null && previewView != null) {
+            try {
+                val preview = Preview.Builder().build()
+                preview.setSurfaceProvider(previewView!!.surfaceProvider)
+                
+                cameraProvider!!.unbindAll()
+                cameraProvider!!.bindToLifecycle(
+                    lifecycleOwner,
+                    cameraSelector,
+                    preview
+                )
+                Log.d("CameraPreview", "Camera switched successfully to ${if (isFrontCamera) "front" else "back"}")
+            } catch (e: Exception) {
+                Log.e("CameraPreview", "Failed to switch camera", e)
+            }
+        }
     }
 
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
@@ -70,43 +89,30 @@ actual fun CameraPreview(
         AndroidView(
             modifier = modifier,
             factory = { ctx ->
-                val previewView = PreviewView(ctx).apply {
+                val preview = PreviewView(ctx).apply {
                     scaleType = PreviewView.ScaleType.FILL_CENTER
                 }
+                previewView = preview
                 
-                val preview = Preview.Builder().build()
-                preview.setSurfaceProvider(previewView.surfaceProvider)
+                val previewUseCase = Preview.Builder().build()
+                previewUseCase.setSurfaceProvider(preview.surfaceProvider)
 
                 try {
                     cameraProvider?.unbindAll()
                     cameraProvider?.bindToLifecycle(
                         lifecycleOwner,
                         cameraSelector,
-                        preview
+                        previewUseCase
                     )
                     Log.d("CameraPreview", "Camera bound successfully")
                 } catch (e: Exception) {
                     Log.e("CameraPreview", "Failed to bind camera", e)
                 }
 
-                previewView
+                preview
             },
-            update = { previewView ->
-                // Update camera selector when switching cameras
-                val preview = Preview.Builder().build()
-                preview.setSurfaceProvider(previewView.surfaceProvider)
-
-                try {
-                    cameraProvider?.unbindAll()
-                    cameraProvider?.bindToLifecycle(
-                        lifecycleOwner,
-                        cameraSelector,
-                        preview
-                    )
-                    Log.d("CameraPreview", "Camera updated successfully")
-                } catch (e: Exception) {
-                    Log.e("CameraPreview", "Failed to update camera", e)
-                }
+            update = { preview ->
+                // Update is handled by LaunchedEffect above
             }
         )
     } else {
