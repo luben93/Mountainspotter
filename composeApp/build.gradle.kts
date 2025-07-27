@@ -49,6 +49,7 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.androidx.lifecycle.runtimeCompose)
+            implementation(libs.ktor.client.darwin) // Use Ktor for iOS networking
 
             // Add dependencies to shared modules as API dependencies
             api(projects.shared)
