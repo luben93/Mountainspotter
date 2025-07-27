@@ -48,9 +48,14 @@ fun HorizonOverlay(
                 // Calculate relative bearing to peak from current compass direction
                 val relativeBearing = (peakBearing - azimuth + 360) % 360
 
-                // Convert bearing to screen position (0 = center, -180/+180 = edges)
-                // We map 360 degrees to screen width
-                val peakX = (halfScreenWidth + halfScreenWidth * (relativeBearing - 180f) / 90f).toFloat()
+                // Convert relativeBearing (0-360) to signed angle (-180 to +180)
+                val signedAngle = if (relativeBearing > 180) relativeBearing - 360 else relativeBearing
+
+                // Map signed angle to screen position for 180-degree field of view (90 degrees each side)
+                // signedAngle -90° → left edge (x = 0)
+                // signedAngle 0° → center (x = halfScreenWidth)  
+                // signedAngle +90° → right edge (x = width)
+                val peakX = (halfScreenWidth + (signedAngle / 90f) * halfScreenWidth).toFloat()
                     .coerceIn(0f, size.width)
 
                 // Draw peak indicator
