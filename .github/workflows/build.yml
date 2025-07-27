@@ -184,7 +184,7 @@ jobs:
       run: |
         cd iosApp
         echo "Building iOS app for simulator using cached frameworks..."
-        xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' build
+        xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration Debug -destination 'platform=iOS Simulator,name=Any iOS Simulator Device' build
         
     - name: Build iOS App for Device (Archive)
       run: |
