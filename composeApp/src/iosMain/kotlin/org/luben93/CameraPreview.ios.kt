@@ -12,7 +12,6 @@ import androidx.compose.ui.interop.UIKitView
 import kotlinx.cinterop.*
 import platform.AVFoundation.*
 import platform.CoreGraphics.CGRectZero
-import platform.Foundation.NSError
 import platform.QuartzCore.CATransaction
 import platform.QuartzCore.kCATransactionDisableActions
 import platform.UIKit.*
@@ -119,20 +118,16 @@ private fun RealDeviceCamera(
     camera: AVCaptureDevice,
     modifier: Modifier
 ) {
-    // Create capture session
+    // Create capture session - following JetBrains imageviewer pattern
     val captureSession: AVCaptureSession = remember(camera) {
         AVCaptureSession().also { captureSession ->
-            captureSession.sessionPreset = AVCaptureSessionPresetHigh
+            captureSession.sessionPreset = AVCaptureSessionPresetPhoto
             
-            // Create device input
-            val captureDeviceInput: AVCaptureDeviceInput? = memScoped {
-                val errorPtr = alloc<ObjCObjectVar<NSError?>>()
-                AVCaptureDeviceInput.deviceInputWithDevice(camera, errorPtr.ptr)
-            }
+            // Create device input - simplified approach like JetBrains example
+            val captureDeviceInput: AVCaptureDeviceInput = 
+                AVCaptureDeviceInput.deviceInputWithDevice(device = camera, error = null)!!
             
-            if (captureDeviceInput != null && captureSession.canAddInput(captureDeviceInput)) {
-                captureSession.addInput(captureDeviceInput)
-            }
+            captureSession.addInput(captureDeviceInput)
         }
     }
     
@@ -140,16 +135,6 @@ private fun RealDeviceCamera(
     val cameraPreviewLayer = remember(captureSession) {
         AVCaptureVideoPreviewLayer(session = captureSession).apply {
             videoGravity = AVLayerVideoGravityResizeAspectFill
-            
-            // Set up connection properties
-            connection?.let { connection ->
-                if (connection.isVideoOrientationSupported()) {
-                    connection.videoOrientation = AVCaptureVideoOrientationPortrait
-                }
-                if (connection.isVideoMirroringSupported() && camera.position == AVCaptureDevicePositionFront) {
-                    connection.videoMirrored = true
-                }
-            }
         }
     }
 
@@ -164,12 +149,9 @@ private fun RealDeviceCamera(
     UIKitView(
         modifier = modifier.fillMaxSize().background(Color.Black),
         factory = {
-            // Create custom container view that handles layout properly
+            // Create custom container view following JetBrains pattern
             val cameraContainer = object : UIView(frame = CGRectZero.readValue()) {
                 override fun layoutSubviews() {
-                    super.layoutSubviews()
-                    
-                    // Update both the layer frame and preview layer frame
                     CATransaction.begin()
                     CATransaction.setValue(true, kCATransactionDisableActions)
                     layer.setFrame(frame)
@@ -180,12 +162,9 @@ private fun RealDeviceCamera(
             
             // Add preview layer to container
             cameraContainer.layer.addSublayer(cameraPreviewLayer)
-            cameraContainer.backgroundColor = UIColor.blackColor
             
-            // Start the capture session
-            if (!captureSession.running) {
-                captureSession.startRunning()
-            }
+            // Start the capture session immediately like JetBrains example
+            captureSession.startRunning()
             
             cameraContainer
         }
