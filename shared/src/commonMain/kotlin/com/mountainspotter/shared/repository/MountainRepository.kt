@@ -168,10 +168,11 @@ class MountainRepository {
      * Load fallback peaks from the embedded JSON file
      */
     private fun loadFallbackPeaksFromJson(): List<MountainPeak> {
+        println("MountainRepository: Loading fallback peaks from JSON...")
         return try {
             val jsonContent = loadResourceAsString("fallback_peaks.json")
             val overpassResponse = json.decodeFromString<OverpassResponse>(jsonContent)
-            
+            println("MountainRepository: loaded ${overpassResponse.elements.size} fallback peaks from JSON")
             overpassResponse.elements.mapNotNull { element ->
                 convertOverpassElementToMountainPeak(element)
             }
@@ -179,98 +180,10 @@ class MountainRepository {
             println("Error loading fallback peaks from JSON: ${e.message}")
             e.printStackTrace()
             // Return hardcoded fallback data if JSON loading fails
-            getHardcodedFallbackPeaks()
+            emptyList()
         }
     }
-    
-    /**
-     * Hardcoded fallback data for when JSON resource loading fails
-     */
-    private fun getHardcodedFallbackPeaks(): List<MountainPeak> {
-        return listOf(
-            MountainPeak(
-                id = "peak_1",
-                name = "Mont Blanc",
-                location = Location(45.8326, 6.8652, 4809.0),
-                elevation = 4809.0,
-                prominence = 4696.0,
-                country = "France/Italy",
-                region = "Alps",
-                imageUrl = "https://picsum.photos/seed/mont_blanc/400/300"
-            ),
-            MountainPeak(
-                id = "peak_2",
-                name = "Matterhorn",
-                location = Location(45.9763, 7.6586, 4478.0),
-                elevation = 4478.0,
-                prominence = 1042.0,
-                country = "Switzerland/Italy",
-                region = "Alps",
-                imageUrl = "https://picsum.photos/seed/matterhorn/400/300"
-            ),
-            MountainPeak(
-                id = "peak_3",
-                name = "Mount Whitney",
-                location = Location(36.5786, -118.2920, 4421.0),
-                elevation = 4421.0,
-                prominence = 3072.0,
-                country = "USA",
-                region = "Sierra Nevada",
-                imageUrl = "https://picsum.photos/seed/mount_whitney/400/300"
-            ),
-            MountainPeak(
-                id = "peak_4",
-                name = "Denali",
-                location = Location(63.0692, -151.0070, 6190.0),
-                elevation = 6190.0,
-                prominence = 6144.0,
-                country = "USA",
-                region = "Alaska Range",
-                imageUrl = "https://picsum.photos/seed/denali/400/300"
-            ),
-            MountainPeak(
-                id = "peak_5",
-                name = "Mount Rainier",
-                location = Location(46.8523, -121.7603, 4392.0),
-                elevation = 4392.0,
-                prominence = 4026.0,
-                country = "USA",
-                region = "Cascade Range",
-                imageUrl = "https://picsum.photos/seed/mount_rainier/400/300"
-            ),
-            MountainPeak(
-                id = "peak_26862449",
-                name = "Inste Åbittinden",
-                location = Location(62.7211109, 8.2269910, 1396.0),
-                elevation = 1396.0,
-                prominence = null,
-                country = "Norway",
-                region = "Scandinavia",
-                imageUrl = "https://picsum.photos/seed/inste_abittinden/400/300"
-            ),
-            MountainPeak(
-                id = "peak_26862501",
-                name = "Åreskutan",
-                location = Location(63.4313938, 13.0932779, 1420.0),
-                elevation = 1420.0,
-                prominence = null,
-                country = "Sweden",
-                region = "Scandinavia",
-                imageUrl = "https://picsum.photos/seed/areskutan/400/300"
-            ),
-            MountainPeak(
-                id = "peak_26862513",
-                name = "Gråhøgda",
-                location = Location(62.1133333, 11.2963889, 1436.0),
-                elevation = 1436.0,
-                prominence = null,
-                country = "Norway",
-                region = "Scandinavia",
-                imageUrl = "https://picsum.photos/seed/grahogda/400/300"
-            )
-        )
-    }
-    
+
     /**
      * Convert Overpass API element to MountainPeak with consistent image URLs
      */

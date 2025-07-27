@@ -21,6 +21,8 @@ import platform.Foundation.NSOperationQueue.Companion.mainQueue
 import platform.Foundation.NSURL
 import platform.darwin.NSObject
 import kotlin.math.*
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 // Unified sensor manager that handles both location and compass
 object UnifiedSensorManager {
@@ -150,8 +152,9 @@ object UnifiedSensorManager {
         }
     }
     
+    @OptIn(ExperimentalTime::class)
     fun updateCompassWithSmoothing(rawAzimuth: Float, pitch: Float, roll: Float) {
-        val currentTime = System.currentTimeMillis()
+        val currentTime = Clock.System.now().toEpochMilliseconds()
         
         // Apply time-based throttling and smoothing
         if (currentTime - lastUpdateTime >= minUpdateInterval) {

@@ -14,10 +14,10 @@ actual fun loadResource(resourcePath: String): String {
         
         // Debug: Print bundle path and contents
         println("iOS ResourceLoader: Bundle path: ${bundle.bundlePath}")
-        bundle.pathsForResourcesOfType(null, null)?.let { paths ->
+        bundle.pathsForResourcesOfType(null, null).let { paths ->
             println("iOS ResourceLoader: Available resources in bundle:")
-            (0 until paths.count.toInt()).forEach { index ->
-                val resourcePath = paths.objectAtIndex(index.toULong())
+            (0 until paths.count()).forEach { index ->
+                val resourcePath = paths[index]
                 println("iOS ResourceLoader:   - $resourcePath")
             }
         }

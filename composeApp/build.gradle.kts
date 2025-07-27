@@ -64,6 +64,8 @@ kotlin {
             iosX64Main.dependsOn(this)
             iosArm64Main.dependsOn(this)
             iosSimulatorArm64Main.dependsOn(this)
+// To include resources from the shared module in iosMain, add the shared resources directory:
+            resources.srcDir(project(":shared").projectDir.resolve("src/commonMain/resources"))
         }
 
         commonTest.dependencies {
