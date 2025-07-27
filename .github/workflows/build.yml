@@ -65,7 +65,7 @@ jobs:
         
         # Pre-compile common KMP targets to populate caches
         echo "Pre-compiling common targets to populate caches..."
-        ./gradlew :shared:compileKotlinJvm :shared-core:compileKotlinJvm --stacktrace --no-daemon --build-cache
+        ./gradlew :shared:compileKotlinIosSimulatorArm64 :shared-core:compileKotlinIosSimulatorArm64 --stacktrace --no-daemon --build-cache
         
         echo "Shared KMP build completed"
         
