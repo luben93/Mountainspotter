@@ -1,0 +1,129 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.7 375dc00a",
+  "osm3s": {
+    "timestamp_osm_base": "2025-07-26T23:30:19Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+    {
+      "type": "node",
+      "id": 26862449,
+      "lat": 62.7211109,
+      "lon": 8.2269910,
+      "tags": {
+        "ele": "1396",
+        "name": "Inste Åbittinden",
+        "natural": "peak"
+      }
+    },
+    {
+      "type": "node",
+      "id": 26862501,
+      "lat": 63.4313938,
+      "lon": 13.0932779,
+      "tags": {
+        "ele": "1420",
+        "name": "Åreskutan",
+        "natural": "peak",
+        "wikidata": "Q271149",
+        "wikipedia": "en:Åreskutan"
+      }
+    },
+    {
+      "type": "node",
+      "id": 26862513,
+      "lat": 62.1133333,
+      "lon": 11.2963889,
+      "tags": {
+        "ele": "1436",
+        "name": "Gråhøgda",
+        "natural": "peak"
+      }
+    },
+    {
+      "type": "node",
+      "id": 26862549,
+      "lat": 61.2029437,
+      "lon": 7.9164610,  
+      "tags": {
+        "ele": "1814",
+        "man_made": "survey_point",
+        "name": "Berdalseken",
+        "natural": "peak",
+        "ssr:stedsnr": "919895"
+      }
+    },
+    {
+      "type": "node",
+      "id": 26862555,
+      "lat": 61.5179097,
+      "lon": 8.6873253,
+      "tags": {
+        "alt_name": "Besshø",
+        "ele": "2258",  
+        "man_made": "survey_point",
+        "name": "Besshøe",
+        "natural": "peak",
+        "ssr:stedsnr": "799935",
+        "wikidata": "Q4573297",
+        "wikipedia": "en:Besshø"
+      }
+    },
+    {
+      "type": "node",
+      "id": 26862903,
+      "lat": 61.6364721,
+      "lon": 8.3124426,
+      "tags": {
+        "communication:amateur_radio:sota": "LA/OL-001",
+        "communication:amateur_radio:sota:points": "10", 
+        "description": "Norway's highest peak",
+        "ele": "2469",
+        "isolation": "1568",
+        "name": "Galdhøpiggen",
+        "name:fr": "Galdhøpiggen",
+        "name:gsw": "Galdhöpiggen", 
+        "natural": "peak",
+        "note:no": "Sikteskive",
+        "prominence": "2367",
+        "source:prominence": "2469-102 (White Sea-Baltic Canal)",
+        "ssr:stedsnr": "313058",
+        "wikidata": "Q203942",
+        "wikipedia": "en:Galdhøpiggen"
+      }
+    },
+    {
+      "type": "node",
+      "id": 26862927,
+      "lat": 59.8542086,
+      "lon": 8.6492648,
+      "tags": {
+        "ele": "1883",
+        "image": "https://photos.app.goo.gl/hMGpfpivFwWKkrad9",
+        "man_made": "survey_point",
+        "name": "Gaustatoppen", 
+        "natural": "peak",
+        "ssr:stedsnr": "854850",
+        "url": "https://youtu.be/qmRpjTF9WtY?t=538",
+        "wikidata": "Q1496308",
+        "wikipedia": "en:Gaustatoppen"
+      }
+    },
+    {
+      "type": "node", 
+      "id": 26862950,
+      "lat": 61.6512832,
+      "lon": 8.5575485,
+      "tags": {
+        "ele": "2452",
+        "name": "Glittertinden",
+        "natural": "peak",
+        "old_name": "Glittertind",
+        "ssr:stedsnr": "70857",
+        "wikidata": "Q397876",
+        "wikipedia": "no:Glittertinden"
+      }
+    }
+  ]
+}

@@ -15,20 +15,14 @@ import platform.CoreGraphics.CGRectZero
 import platform.QuartzCore.CATransaction
 import platform.QuartzCore.kCATransactionDisableActions
 import platform.UIKit.*
+import platform.darwin.dispatch_async
+import platform.darwin.dispatch_get_main_queue
 
 private sealed interface CameraAccess {
     object Undefined : CameraAccess
     object Denied : CameraAccess
     object Authorized : CameraAccess
 }
-
-private val deviceTypes = listOf(
-    AVCaptureDeviceTypeBuiltInWideAngleCamera,
-    AVCaptureDeviceTypeBuiltInDualWideCamera,
-    AVCaptureDeviceTypeBuiltInDualCamera,
-    AVCaptureDeviceTypeBuiltInUltraWideCamera,
-    AVCaptureDeviceTypeBuiltInTripleCamera
-)
 
 @OptIn(ExperimentalForeignApi::class)
 @Composable
@@ -39,18 +33,27 @@ actual fun CameraPreview(
 ) {
     var cameraAccess: CameraAccess by remember { mutableStateOf(CameraAccess.Undefined) }
     
-    // Request camera permission
+    // Request camera permission with proper main thread handling
     LaunchedEffect(Unit) {
-        when (AVCaptureDevice.authorizationStatusForMediaType(AVMediaTypeVideo)) {
+        val currentStatus = AVCaptureDevice.authorizationStatusForMediaType(AVMediaTypeVideo)
+        println("iOS Camera: Current permission status: $currentStatus")
+        
+        when (currentStatus) {
             AVAuthorizationStatusAuthorized -> {
+                println("iOS Camera: Permission already granted")
                 cameraAccess = CameraAccess.Authorized
             }
             AVAuthorizationStatusDenied, AVAuthorizationStatusRestricted -> {
+                println("iOS Camera: Permission denied or restricted")
                 cameraAccess = CameraAccess.Denied
             }
             AVAuthorizationStatusNotDetermined -> {
-                AVCaptureDevice.requestAccessForMediaType(AVMediaTypeVideo) { success ->
-                    cameraAccess = if (success) CameraAccess.Authorized else CameraAccess.Denied
+                println("iOS Camera: Requesting permission")
+                AVCaptureDevice.requestAccessForMediaType(AVMediaTypeVideo) { granted ->
+                    println("iOS Camera: Permission callback - granted: $granted")
+                    dispatch_async(dispatch_get_main_queue()) {
+                        cameraAccess = if (granted) CameraAccess.Authorized else CameraAccess.Denied
+                    }
                 }
             }
         }
@@ -74,7 +77,7 @@ actual fun CameraPreview(
                 )
             }
             CameraAccess.Authorized -> {
-                AuthorizedCamera(isFrontCamera, modifier)
+                CameraView(isFrontCamera, modifier)
             }
         }
     }
@@ -82,91 +85,117 @@ actual fun CameraPreview(
 
 @OptIn(ExperimentalForeignApi::class)
 @Composable
-private fun AuthorizedCamera(
+private fun CameraView(
     isFrontCamera: Boolean,
     modifier: Modifier
 ) {
     val cameraPosition = if (isFrontCamera) AVCaptureDevicePositionFront else AVCaptureDevicePositionBack
     
-    // Find camera device
-    val camera: AVCaptureDevice? = remember(cameraPosition) {
-        AVCaptureDeviceDiscoverySession.discoverySessionWithDeviceTypes(
-            deviceTypes = deviceTypes,
-            mediaType = AVMediaTypeVideo,
-            position = cameraPosition,
-        ).devices.firstOrNull() as? AVCaptureDevice
-    }
-
-    if (camera != null) {
-        RealDeviceCamera(camera, modifier)
-    } else {
-        Box(
-            modifier = modifier.fillMaxSize().background(Color.Black),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                "Camera not available for selected position",
-                color = Color.White
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalForeignApi::class)
-@Composable
-private fun RealDeviceCamera(
-    camera: AVCaptureDevice,
-    modifier: Modifier
-) {
-    // Create capture session - following JetBrains imageviewer pattern
-    val captureSession: AVCaptureSession = remember(camera) {
-        AVCaptureSession().also { captureSession ->
-            captureSession.sessionPreset = AVCaptureSessionPresetPhoto
-            
-            // Create device input - simplified approach like JetBrains example
-            val captureDeviceInput: AVCaptureDeviceInput = 
-                AVCaptureDeviceInput.deviceInputWithDevice(device = camera, error = null)!!
-            
-            captureSession.addInput(captureDeviceInput)
-        }
-    }
+    println("iOS Camera: Setting up camera for position: $cameraPosition")
     
-    // Create preview layer
-    val cameraPreviewLayer = remember(captureSession) {
-        AVCaptureVideoPreviewLayer(session = captureSession).apply {
-            videoGravity = AVLayerVideoGravityResizeAspectFill
-        }
-    }
-
-    DisposableEffect(captureSession) {
-        onDispose {
-            if (captureSession.running) {
-                captureSession.stopRunning()
-            }
-        }
-    }
-
     UIKitView(
         modifier = modifier.fillMaxSize().background(Color.Black),
-        factory = {
-            // Create custom container view following JetBrains pattern
-            val cameraContainer = object : UIView(frame = CGRectZero.readValue()) {
+        factory = { context ->
+            println("iOS Camera: Creating UIKitView factory")
+            
+            // Create the main container view
+            val containerView = object : UIView(frame = CGRectZero.readValue()) {
                 override fun layoutSubviews() {
-                    CATransaction.begin()
-                    CATransaction.setValue(true, kCATransactionDisableActions)
-                    layer.setFrame(frame)
-                    cameraPreviewLayer.setFrame(frame)
-                    CATransaction.commit()
+                    super.layoutSubviews()
+                    println("iOS Camera: Container layoutSubviews called, frame: $frame")
+                    
+                    // Update all sublayers frames
+                    layer.sublayers?.let { sublayers ->
+                        (0 until sublayers.count.toInt()).forEach { index ->
+                            val sublayer = sublayers.objectAtIndex(index.toULong())
+                            if (sublayer is AVCaptureVideoPreviewLayer) {
+                                println("iOS Camera: Updating preview layer frame")
+                                CATransaction.begin()
+                                CATransaction.setValue(true, kCATransactionDisableActions)
+                                sublayer.setFrame(bounds)
+                                CATransaction.commit()
+                            }
+                        }
+                    }
                 }
             }
             
-            // Add preview layer to container
-            cameraContainer.layer.addSublayer(cameraPreviewLayer)
+            try {
+                // Create capture session
+                val captureSession = AVCaptureSession()
+                captureSession.sessionPreset = AVCaptureSessionPresetHigh
+                println("iOS Camera: Created capture session")
+                
+                // Find camera device
+                val discoverySession = AVCaptureDeviceDiscoverySession.discoverySessionWithDeviceTypes(
+                    deviceTypes = listOf(
+                        AVCaptureDeviceTypeBuiltInWideAngleCamera,
+                        AVCaptureDeviceTypeBuiltInDualWideCamera,
+                        AVCaptureDeviceTypeBuiltInDualCamera,
+                        AVCaptureDeviceTypeBuiltInUltraWideCamera,
+                        AVCaptureDeviceTypeBuiltInTripleCamera
+                    ),
+                    mediaType = AVMediaTypeVideo,
+                    position = cameraPosition
+                )
+                
+                val camera = discoverySession.devices.firstOrNull() as? AVCaptureDevice
+                if (camera == null) {
+                    println("iOS Camera: No camera found for position $cameraPosition")
+                    return@UIKitView containerView
+                }
+                
+                println("iOS Camera: Found camera: ${camera.localizedName}")
+                
+                // Create device input
+                val deviceInput = memScoped {
+                    val errorPtr = alloc<ObjCObjectVar<NSError?>>()
+                    val input = AVCaptureDeviceInput.deviceInputWithDevice(camera, errorPtr.ptr)
+                    val error = errorPtr.value
+                    if (error != null) {
+                        println("iOS Camera: Error creating device input: ${error.localizedDescription}")
+                        return@memScoped null
+                    }
+                    input
+                }
+                
+                if (deviceInput == null) {
+                    println("iOS Camera: Failed to create device input")
+                    return@UIKitView containerView
+                }
+                
+                // Add input to session
+                if (captureSession.canAddInput(deviceInput)) {
+                    captureSession.addInput(deviceInput)
+                    println("iOS Camera: Added device input to session")
+                } else {
+                    println("iOS Camera: Cannot add device input to session")
+                    return@UIKitView containerView
+                }
+                
+                // Create preview layer
+                val previewLayer = AVCaptureVideoPreviewLayer(session = captureSession)
+                previewLayer.videoGravity = AVLayerVideoGravityResizeAspectFill
+                previewLayer.setFrame(containerView.bounds)
+                
+                // Add preview layer to container
+                containerView.layer.addSublayer(previewLayer)
+                println("iOS Camera: Added preview layer to container")
+                
+                // Start capture session on background queue
+                val sessionQueue = platform.darwin.dispatch_queue_create("camera.session.queue", null)
+                platform.darwin.dispatch_async(sessionQueue) {
+                    if (!captureSession.running) {
+                        captureSession.startRunning()
+                        println("iOS Camera: Started capture session")
+                    }
+                }
+                
+            } catch (e: Exception) {
+                println("iOS Camera: Exception during setup: ${e.message}")
+            }
             
-            // Start the capture session immediately like JetBrains example
-            captureSession.startRunning()
-            
-            cameraContainer
+            containerView
         }
     )
 }
