@@ -1,10 +1,8 @@
-name: iOS Build
+name: iOS Build (Legacy)
 
+# This workflow is now deprecated in favor of the unified build.yml workflow  
+# Only kept for manual dispatch when needed
 on:
-  push:
-    branches: [ main, develop, "copilot/**" ]
-  pull_request:
-    branches: [ main, develop ]
   workflow_dispatch:
 
 jobs:
