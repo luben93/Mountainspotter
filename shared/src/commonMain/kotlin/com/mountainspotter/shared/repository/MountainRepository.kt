@@ -3,8 +3,16 @@ package com.mountainspotter.shared.repository
 import com.mountainspotter.shared.model.MountainPeak
 import com.mountainspotter.shared.model.Location
 import com.mountainspotter.shared.service.OverpassApiService
+import com.mountainspotter.shared.service.OverpassResponse
+import com.mountainspotter.shared.service.OverpassElement
 import com.mountainspotter.shared.service.ImageCacheService
 import com.mountainspotter.shared.service.NetworkModule
+import kotlinx.serialization.json.Json
+
+/**
+ * Load a resource file as string - platform-specific implementation
+ */
+expect fun loadResource(resourcePath: String): String
 
 /**
  * Repository for mountain peak data
@@ -21,90 +29,13 @@ class MountainRepository {
     private var lastLocation: Location? = null
     private var lastRadius: Double = 0.0
     
-    // Fallback sample data for offline or error scenarios
-    private val samplePeaks = listOf(
-        MountainPeak(
-            id = "mont_blanc",
-            name = "Mont Blanc",
-            location = Location(45.8326, 6.8652, 4809.0),
-            elevation = 4809.0,
-            prominence = 4696.0,
-            country = "France/Italy",
-            region = "Alps",
-            imageUrl = "https://picsum.photos/seed/mont_blanc/400/300"
-        ),
-        MountainPeak(
-            id = "matterhorn",
-            name = "Matterhorn",
-            location = Location(45.9763, 7.6586, 4478.0),
-            elevation = 4478.0,
-            prominence = 1042.0,
-            country = "Switzerland/Italy",
-            region = "Alps",
-            imageUrl = "https://picsum.photos/seed/matterhorn/400/300"
-        ),
-        MountainPeak(
-            id = "mount_whitney",
-            name = "Mount Whitney",
-            location = Location(36.5786, -118.2920, 4421.0),
-            elevation = 4421.0,
-            prominence = 3072.0,
-            country = "USA",
-            region = "Sierra Nevada",
-            imageUrl = "https://picsum.photos/seed/mount_whitney/400/300"
-        ),
-        MountainPeak(
-            id = "denali",
-            name = "Denali",
-            location = Location(63.0692, -151.0070, 6190.0),
-            elevation = 6190.0,
-            prominence = 6144.0,
-            country = "USA",
-            region = "Alaska Range",
-            imageUrl = "https://picsum.photos/seed/denali/400/300"
-        ),
-        MountainPeak(
-            id = "mount_rainier",
-            name = "Mount Rainier",
-            location = Location(46.8523, -121.7603, 4392.0),
-            elevation = 4392.0,
-            prominence = 4026.0,
-            country = "USA",
-            region = "Cascade Range",
-            imageUrl = "https://picsum.photos/seed/mount_rainier/400/300"
-        ),
-        // Pre-fetched Norwegian/Swedish peaks from Overpass API sample data
-        MountainPeak(
-            id = "peak_26862449",
-            name = "Inste Åbittinden",
-            location = Location(62.7211109, 8.2269910, 1396.0),
-            elevation = 1396.0,
-            prominence = null,
-            country = "Norway",
-            region = "Scandinavia",
-            imageUrl = "https://picsum.photos/seed/inste_abittinden/400/300"
-        ),
-        MountainPeak(
-            id = "peak_26862501",
-            name = "Åreskutan",
-            location = Location(63.4313938, 13.0932779, 1420.0),
-            elevation = 1420.0,
-            prominence = null,
-            country = "Sweden",
-            region = "Scandinavia",
-            imageUrl = "https://picsum.photos/seed/areskutan/400/300"
-        ),
-        MountainPeak(
-            id = "peak_26862513",
-            name = "Gråhøgda",
-            location = Location(62.1133333, 11.2963889, 1436.0),
-            elevation = 1436.0,
-            prominence = null,
-            country = "Norway",
-            region = "Scandinavia",
-            imageUrl = "https://picsum.photos/seed/grahogda/400/300"
-        )
-    )
+    // JSON parser for fallback data
+    private val json = Json { ignoreUnknownKeys = true }
+    
+    // Lazy-loaded fallback peaks from JSON file
+    private val fallbackPeaks: List<MountainPeak> by lazy {
+        loadFallbackPeaksFromJson()
+    }
     
     /**
      * Get peaks within a certain radius of a location
@@ -127,8 +58,14 @@ class MountainRepository {
             val peaksWithImages = if (peaks.isNotEmpty()) {
                 imageCacheService.fetchAndCacheImages(peaks)
             } else {
-                // Fallback to sample data if API fails or returns no results
-                samplePeaks
+                // Check if we have coverage in our fallback data first
+                val localPeaks = getPeaksFromFallbackData(location, radiusKm)
+                if (localPeaks.isNotEmpty()) {
+                    localPeaks
+                } else {
+                    // No local coverage, use all fallback data
+                    fallbackPeaks
+                }
             }
             
             // Update cache
@@ -140,8 +77,14 @@ class MountainRepository {
             
         } catch (e: Exception) {
             println("Error fetching peaks from API, using fallback data: ${e.message}")
-            // Return sample data as fallback
-            return samplePeaks
+            // Check if we have coverage in our fallback data first
+            val localPeaks = getPeaksFromFallbackData(location, radiusKm)
+            return if (localPeaks.isNotEmpty()) {
+                localPeaks
+            } else {
+                // No local coverage, use all fallback data
+                fallbackPeaks
+            }
         }
     }
     
@@ -149,7 +92,7 @@ class MountainRepository {
      * Get all known peaks (for demo purposes)
      */
     suspend fun getAllPeaks(): List<MountainPeak> {
-        return samplePeaks
+        return fallbackPeaks
     }
     
     /**
@@ -167,8 +110,8 @@ class MountainRepository {
             return cachedResults
         }
         
-        // Fallback to sample data search
-        return samplePeaks.filter { 
+        // Fallback to fallback data search
+        return fallbackPeaks.filter { 
             it.name.contains(query, ignoreCase = true) ||
             it.region?.contains(query, ignoreCase = true) == true ||
             it.country?.contains(query, ignoreCase = true) == true
@@ -215,5 +158,154 @@ class MountainRepository {
      */
     fun close() {
         httpClient.close()
+    }
+    
+    /**
+     * Load fallback peaks from the embedded JSON file
+     */
+    private fun loadFallbackPeaksFromJson(): List<MountainPeak> {
+        return try {
+            val jsonContent = loadResourceAsString("fallback_peaks.json")
+            val overpassResponse = json.decodeFromString<OverpassResponse>(jsonContent)
+            
+            overpassResponse.elements.mapNotNull { element ->
+                convertOverpassElementToMountainPeak(element)
+            }
+        } catch (e: Exception) {
+            println("Error loading fallback peaks from JSON: ${e.message}")
+            e.printStackTrace()
+            // Return hardcoded fallback data if JSON loading fails
+            getHardcodedFallbackPeaks()
+        }
+    }
+    
+    /**
+     * Hardcoded fallback data for when JSON resource loading fails
+     */
+    private fun getHardcodedFallbackPeaks(): List<MountainPeak> {
+        return listOf(
+            MountainPeak(
+                id = "peak_1",
+                name = "Mont Blanc",
+                location = Location(45.8326, 6.8652, 4809.0),
+                elevation = 4809.0,
+                prominence = 4696.0,
+                country = "France/Italy",
+                region = "Alps",
+                imageUrl = "https://picsum.photos/seed/mont_blanc/400/300"
+            ),
+            MountainPeak(
+                id = "peak_2",
+                name = "Matterhorn",
+                location = Location(45.9763, 7.6586, 4478.0),
+                elevation = 4478.0,
+                prominence = 1042.0,
+                country = "Switzerland/Italy",
+                region = "Alps",
+                imageUrl = "https://picsum.photos/seed/matterhorn/400/300"
+            ),
+            MountainPeak(
+                id = "peak_3",
+                name = "Mount Whitney",
+                location = Location(36.5786, -118.2920, 4421.0),
+                elevation = 4421.0,
+                prominence = 3072.0,
+                country = "USA",
+                region = "Sierra Nevada",
+                imageUrl = "https://picsum.photos/seed/mount_whitney/400/300"
+            ),
+            MountainPeak(
+                id = "peak_4",
+                name = "Denali",
+                location = Location(63.0692, -151.0070, 6190.0),
+                elevation = 6190.0,
+                prominence = 6144.0,
+                country = "USA",
+                region = "Alaska Range",
+                imageUrl = "https://picsum.photos/seed/denali/400/300"
+            ),
+            MountainPeak(
+                id = "peak_5",
+                name = "Mount Rainier",
+                location = Location(46.8523, -121.7603, 4392.0),
+                elevation = 4392.0,
+                prominence = 4026.0,
+                country = "USA",
+                region = "Cascade Range",
+                imageUrl = "https://picsum.photos/seed/mount_rainier/400/300"
+            ),
+            MountainPeak(
+                id = "peak_26862449",
+                name = "Inste Åbittinden",
+                location = Location(62.7211109, 8.2269910, 1396.0),
+                elevation = 1396.0,
+                prominence = null,
+                country = "Norway",
+                region = "Scandinavia",
+                imageUrl = "https://picsum.photos/seed/inste_abittinden/400/300"
+            ),
+            MountainPeak(
+                id = "peak_26862501",
+                name = "Åreskutan",
+                location = Location(63.4313938, 13.0932779, 1420.0),
+                elevation = 1420.0,
+                prominence = null,
+                country = "Sweden",
+                region = "Scandinavia",
+                imageUrl = "https://picsum.photos/seed/areskutan/400/300"
+            ),
+            MountainPeak(
+                id = "peak_26862513",
+                name = "Gråhøgda",
+                location = Location(62.1133333, 11.2963889, 1436.0),
+                elevation = 1436.0,
+                prominence = null,
+                country = "Norway",
+                region = "Scandinavia",
+                imageUrl = "https://picsum.photos/seed/grahogda/400/300"
+            )
+        )
+    }
+    
+    /**
+     * Convert Overpass API element to MountainPeak with consistent image URLs
+     */
+    private fun convertOverpassElementToMountainPeak(element: OverpassElement): MountainPeak? {
+        val tags = element.tags ?: return null
+        val name = tags["name"] ?: return null
+        val lat = element.lat ?: return null
+        val lon = element.lon ?: return null
+        val elevation = tags["ele"]?.toDoubleOrNull() ?: 0.0
+        
+        // Generate deterministic image URL based on name
+        val imageUrl = "https://picsum.photos/seed/${name.lowercase().replace(" ", "_").replace("å", "a").replace("ö", "o").replace("ä", "a")}/400/300"
+        
+        return MountainPeak(
+            id = "peak_${element.id}",
+            name = name,
+            location = Location(lat, lon, elevation),
+            elevation = elevation,
+            prominence = tags["prominence"]?.toDoubleOrNull(),
+            country = tags["addr:country"] ?: tags["country"],
+            region = tags["region"] ?: tags["addr:state"] ?: tags["state"],
+            imageUrl = imageUrl
+        )
+    }
+    
+    /**
+     * Check if we have coverage for a location in our fallback data
+     */
+    private fun getPeaksFromFallbackData(location: Location, radiusKm: Double): List<MountainPeak> {
+        return fallbackPeaks.filter { peak ->
+            val distance = calculateSimpleDistance(location, peak.location)
+            distance <= radiusKm
+        }
+    }
+    
+    /**
+     * Load a resource file as string - expect implementation
+     */
+    private fun loadResourceAsString(resourcePath: String): String {
+        return loadResource(resourcePath)
     }
 }
