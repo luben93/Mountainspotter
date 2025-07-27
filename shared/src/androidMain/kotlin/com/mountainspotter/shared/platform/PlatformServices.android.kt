@@ -123,6 +123,12 @@ actual class CompassService(private val context: Context) {
     private val gravity = FloatArray(3)
     private val geomagnetic = FloatArray(3)
     
+    // Compass smoothing variables
+    private var lastAzimuth: Float = 0f
+    private var lastUpdateTime: Long = 0
+    private val smoothingFactor = 0.1f // Lower values = more smoothing
+    private val minUpdateInterval = 100L // Minimum 100ms between updates
+    
     actual fun startCompassUpdates(): Flow<CompassData> = callbackFlow {
         if (!isCompassAvailable()) {
             return@callbackFlow
@@ -152,17 +158,34 @@ actual class CompassService(private val context: Context) {
                     val orientation = FloatArray(3)
                     SensorManager.getOrientation(R, orientation)
                     
-                    val azimuth = Math.toDegrees(orientation[0].toDouble()).toFloat()
+                    val rawAzimuth = Math.toDegrees(orientation[0].toDouble()).toFloat()
                     val pitch = Math.toDegrees(orientation[1].toDouble()).toFloat()
                     val roll = Math.toDegrees(orientation[2].toDouble()).toFloat()
                     
-                    trySend(
-                        CompassData(
-                            azimuth = if (azimuth < 0) azimuth + 360f else azimuth,
-                            pitch = pitch,
-                            roll = roll
+                    val currentTime = System.currentTimeMillis()
+                    
+                    // Apply time-based throttling and smoothing
+                    if (currentTime - lastUpdateTime >= minUpdateInterval) {
+                        val normalizedAzimuth = if (rawAzimuth < 0) rawAzimuth + 360f else rawAzimuth
+                        
+                        // Apply exponential smoothing to reduce jitter
+                        val smoothedAzimuth = if (lastUpdateTime == 0L) {
+                            normalizedAzimuth
+                        } else {
+                            smoothCompassValue(lastAzimuth, normalizedAzimuth, smoothingFactor)
+                        }
+                        
+                        lastAzimuth = smoothedAzimuth
+                        lastUpdateTime = currentTime
+                        
+                        trySend(
+                            CompassData(
+                                azimuth = smoothedAzimuth,
+                                pitch = pitch,
+                                roll = roll
+                            )
                         )
-                    )
+                    }
                 }
             }
             
@@ -190,6 +213,27 @@ actual class CompassService(private val context: Context) {
     
     actual fun isCompassAvailable(): Boolean {
         return accelerometer != null && magnetometer != null
+    }
+    
+    /**
+     * Smooth compass values to reduce jitter, handling the circular nature of compass readings
+     */
+    private fun smoothCompassValue(lastValue: Float, newValue: Float, factor: Float): Float {
+        var diff = newValue - lastValue
+        
+        // Handle wrapping around 0/360 degrees
+        if (diff > 180f) {
+            diff -= 360f
+        } else if (diff < -180f) {
+            diff += 360f
+        }
+        
+        val smoothed = lastValue + factor * diff
+        return when {
+            smoothed < 0f -> smoothed + 360f
+            smoothed >= 360f -> smoothed - 360f
+            else -> smoothed
+        }
     }
 }
 

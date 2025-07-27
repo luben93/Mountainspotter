@@ -19,6 +19,7 @@ import com.mountainspotter.shared.model.VisiblePeak
 @Composable
 expect fun CameraPreview(
     modifier: Modifier = Modifier,
+    isFrontCamera: Boolean = false,
     onSwitchCamera: () -> Unit
 )
 
@@ -35,6 +36,7 @@ fun CameraView(
         // Camera Preview
         CameraPreview(
             modifier = Modifier.fillMaxSize(),
+            isFrontCamera = isFrontCamera,
             onSwitchCamera = { isFrontCamera = !isFrontCamera }
         )
 
@@ -45,31 +47,33 @@ fun CameraView(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Top Controls
+        // Top Controls - Moved to less intrusive position
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(top = 50.dp, start = 16.dp, end = 16.dp), // Moved down from top
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             // Back button
             Button(
                 onClick = onBack,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Black.copy(alpha = 0.6f)
-                )
+                    containerColor = Color.Black.copy(alpha = 0.7f)
+                ),
+                modifier = Modifier.size(width = 80.dp, height = 36.dp) // Smaller buttons
             ) {
-                Text("Back")
+                Text("←", fontSize = 18.sp) // Use symbol instead of text
             }
 
             // Camera switch button
             Button(
                 onClick = { isFrontCamera = !isFrontCamera },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Black.copy(alpha = 0.6f)
-                )
+                    containerColor = Color.Black.copy(alpha = 0.7f)
+                ),
+                modifier = Modifier.size(width = 80.dp, height = 36.dp) // Smaller buttons
             ) {
-                Text("Switch Camera")
+                Text("⟲", fontSize = 16.sp) // Use symbol instead of text
             }
         }
 

@@ -35,6 +35,10 @@ kotlin {
         androidMain.dependencies {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
+            implementation(libs.camerax.core)
+            implementation(libs.camerax.camera2)
+            implementation(libs.camerax.lifecycle)
+            implementation(libs.camerax.view)
         }
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -60,6 +64,8 @@ kotlin {
             iosX64Main.dependsOn(this)
             iosArm64Main.dependsOn(this)
             iosSimulatorArm64Main.dependsOn(this)
+// To include resources from the shared module in iosMain, add the shared resources directory:
+            resources.srcDir(project(":shared").projectDir.resolve("src/commonMain/resources"))
         }
 
         commonTest.dependencies {

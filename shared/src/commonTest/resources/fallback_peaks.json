@@ -1,0 +1,119 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.57",
+  "osm3s": {
+    "timestamp_osm_base": "2023-01-01T00:00:00Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+    {
+      "type": "node",
+      "id": 1,
+      "lat": 45.8326,
+      "lon": 6.8652,
+      "tags": {
+        "name": "Mont Blanc",
+        "natural": "peak",
+        "ele": "4809",
+        "prominence": "4696",
+        "addr:country": "France/Italy",
+        "region": "Alps"
+      }
+    },
+    {
+      "type": "node",
+      "id": 2,
+      "lat": 45.9763,
+      "lon": 7.6586,
+      "tags": {
+        "name": "Matterhorn",
+        "natural": "peak",
+        "ele": "4478",
+        "prominence": "1042",
+        "addr:country": "Switzerland/Italy",
+        "region": "Alps"
+      }
+    },
+    {
+      "type": "node",
+      "id": 3,
+      "lat": 36.5786,
+      "lon": -118.2920,
+      "tags": {
+        "name": "Mount Whitney",
+        "natural": "peak",
+        "ele": "4421",
+        "prominence": "3072",
+        "addr:country": "USA",
+        "region": "Sierra Nevada"
+      }
+    },
+    {
+      "type": "node",
+      "id": 4,
+      "lat": 63.0692,
+      "lon": -151.0070,
+      "tags": {
+        "name": "Denali",
+        "natural": "peak",
+        "ele": "6190",
+        "prominence": "6144",
+        "addr:country": "USA",
+        "region": "Alaska Range"
+      }
+    },
+    {
+      "type": "node",
+      "id": 5,
+      "lat": 46.8523,
+      "lon": -121.7603,
+      "tags": {
+        "name": "Mount Rainier",
+        "natural": "peak",
+        "ele": "4392",
+        "prominence": "4026",
+        "addr:country": "USA",
+        "region": "Cascade Range"
+      }
+    },
+    {
+      "type": "node",
+      "id": 26862449,
+      "lat": 62.7211109,
+      "lon": 8.2269910,
+      "tags": {
+        "name": "Inste Åbittinden",
+        "natural": "peak",
+        "ele": "1396",
+        "addr:country": "Norway",
+        "region": "Scandinavia"
+      }
+    },
+    {
+      "type": "node",
+      "id": 26862501,
+      "lat": 63.4313938,
+      "lon": 13.0932779,
+      "tags": {
+        "name": "Åreskutan",
+        "natural": "peak",
+        "ele": "1420",
+        "addr:country": "Sweden",
+        "region": "Scandinavia"
+      }
+    },
+    {
+      "type": "node",
+      "id": 26862513,
+      "lat": 62.1133333,
+      "lon": 11.2963889,
+      "tags": {
+        "name": "Gråhøgda",
+        "natural": "peak",
+        "ele": "1436",
+        "addr:country": "Norway",
+        "region": "Scandinavia"
+      }
+    }
+  ]
+}
