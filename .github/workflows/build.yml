@@ -40,9 +40,11 @@ jobs:
         path: |
           ~/.gradle/caches
           ~/.gradle/wrapper
+          ~/.gradle/kotlin-dsl
           shared/build
           shared-core/build
           build/kotlin-build-cache
+          build/kotlin
         key: ${{ steps.cache-key.outputs.key }}
         restore-keys: |
           shared-kmp-
@@ -60,6 +62,10 @@ jobs:
         echo "Building iOS frameworks..."
         ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64 :shared:linkDebugFrameworkIosArm64 :shared:linkDebugFrameworkIosX64 --stacktrace --no-daemon --build-cache
         ./gradlew :shared:linkReleaseFrameworkIosSimulatorArm64 :shared:linkReleaseFrameworkIosArm64 :shared:linkReleaseFrameworkIosX64 --stacktrace --no-daemon --build-cache
+        
+        # Pre-compile common KMP targets to populate caches
+        echo "Pre-compiling common targets to populate caches..."
+        ./gradlew :shared:compileKotlinJvm :shared-core:compileKotlinJvm --stacktrace --no-daemon --build-cache
         
         echo "Shared KMP build completed"
         
@@ -90,15 +96,31 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
       
+    - name: Cache Android SDK and build tools
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.android/avd
+          ~/.android/adb*
+          ${{ env.ANDROID_HOME }}/platforms
+          ${{ env.ANDROID_HOME }}/platform-tools
+          ${{ env.ANDROID_HOME }}/build-tools
+          ${{ env.ANDROID_HOME }}/ndk
+        key: ${{ runner.os }}-android-sdk-${{ hashFiles('androidApp/build.gradle.kts') }}
+        restore-keys: |
+          ${{ runner.os }}-android-sdk-
+      
     - name: Restore Gradle and KMP shared build cache
       uses: actions/cache@v4
       with:
         path: |
           ~/.gradle/caches
           ~/.gradle/wrapper
+          ~/.gradle/kotlin-dsl
           shared/build
           shared-core/build
           build/kotlin-build-cache
+          build/kotlin
         key: ${{ needs.shared-build.outputs.cache-key }}
         restore-keys: |
           shared-kmp-
@@ -148,15 +170,37 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
         
+    - name: Cache Kotlin Native dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.konan/dependencies
+          ~/.konan/kotlin-native-prebuilt-macos-*
+        key: ${{ runner.os }}-kotlin-native-${{ hashFiles('shared/build.gradle.kts', 'shared-core/build.gradle.kts') }}
+        restore-keys: |
+          ${{ runner.os }}-kotlin-native-
+          
+    - name: Cache Xcode DerivedData
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/Library/Developer/Xcode/DerivedData
+          ~/Library/Caches/com.apple.dt.Xcode
+        key: ${{ runner.os }}-xcode-deriveddata-${{ hashFiles('iosApp/iosApp.xcodeproj/**') }}
+        restore-keys: |
+          ${{ runner.os }}-xcode-deriveddata-
+        
     - name: Restore Gradle and KMP shared build cache
       uses: actions/cache@v4
       with:
         path: |
           ~/.gradle/caches
           ~/.gradle/wrapper
+          ~/.gradle/kotlin-dsl
           shared/build
           shared-core/build
           build/kotlin-build-cache
+          build/kotlin
         key: ${{ needs.shared-build.outputs.cache-key }}
         restore-keys: |
           shared-kmp-

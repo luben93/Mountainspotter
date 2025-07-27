@@ -38,9 +38,11 @@ jobs:
         path: |
           ~/.gradle/caches
           ~/.gradle/wrapper
+          ~/.gradle/kotlin-dsl
           shared/build
           shared-core/build
           build/kotlin-build-cache
+          build/kotlin
         key: ${{ steps.cache-key.outputs.key }}
         restore-keys: |
           shared-kmp-
@@ -84,15 +86,31 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
       
+    - name: Cache Android SDK and build tools
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.android/avd
+          ~/.android/adb*
+          ${{ env.ANDROID_HOME }}/platforms
+          ${{ env.ANDROID_HOME }}/platform-tools
+          ${{ env.ANDROID_HOME }}/build-tools
+          ${{ env.ANDROID_HOME }}/ndk
+        key: ${{ runner.os }}-android-sdk-${{ hashFiles('androidApp/build.gradle.kts') }}
+        restore-keys: |
+          ${{ runner.os }}-android-sdk-
+      
     - name: Restore Gradle and KMP shared build cache
       uses: actions/cache@v4
       with:
         path: |
           ~/.gradle/caches
           ~/.gradle/wrapper
+          ~/.gradle/kotlin-dsl
           shared/build
           shared-core/build
           build/kotlin-build-cache
+          build/kotlin
         key: ${{ needs.shared-build.outputs.cache-key }}
         restore-keys: |
           shared-kmp-

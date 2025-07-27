@@ -19,12 +19,35 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
         
+    - name: Cache Kotlin Native dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.konan/dependencies
+          ~/.konan/kotlin-native-prebuilt-macos-*
+        key: ${{ runner.os }}-kotlin-native-${{ hashFiles('shared/build.gradle.kts', 'shared-core/build.gradle.kts') }}
+        restore-keys: |
+          ${{ runner.os }}-kotlin-native-
+          
+    - name: Cache Xcode DerivedData
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/Library/Developer/Xcode/DerivedData
+          ~/Library/Caches/com.apple.dt.Xcode
+        key: ${{ runner.os }}-xcode-deriveddata-${{ hashFiles('iosApp/iosApp.xcodeproj/**') }}
+        restore-keys: |
+          ${{ runner.os }}-xcode-deriveddata-
+        
     - name: Cache Gradle packages
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: |
           ~/.gradle/caches
           ~/.gradle/wrapper
+          ~/.gradle/kotlin-dsl
+          build/kotlin-build-cache
+          build/kotlin
         key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
         restore-keys: |
           ${{ runner.os }}-gradle-
