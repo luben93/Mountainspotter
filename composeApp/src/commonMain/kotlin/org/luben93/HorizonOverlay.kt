@@ -65,8 +65,8 @@ private fun filterVisiblePeaks(peaks: List<VisiblePeak>, currentAzimuth: Float?)
         }
     }
     
-    // Final limit: show at most 5 peaks to avoid clutter
-    return unobstructedPeaks.take(5)
+    // Final limit: show at most 40 peaks to avoid clutter
+    return unobstructedPeaks.take(40)
 }
 
 /**
