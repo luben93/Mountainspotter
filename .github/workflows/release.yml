@@ -32,6 +32,16 @@ jobs:
         echo "key=${KEY}" >> $GITHUB_OUTPUT
         echo "Generated cache key: ${KEY}"
         
+    - name: Cache Kotlin Native dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.konan/dependencies
+          ~/.konan/kotlin-native-prebuilt-linux-*
+        key: ${{ runner.os }}-kotlin-native-${{ hashFiles('shared/build.gradle.kts', 'shared-core/build.gradle.kts') }}
+        restore-keys: |
+          ${{ runner.os }}-kotlin-native-
+        
     - name: Cache Gradle and KMP shared build
       uses: actions/cache@v4
       with:

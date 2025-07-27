@@ -5,12 +5,15 @@ on:
     branches: [ develop, "copilot/**" ]
   pull_request:
     branches: [ main, develop ]
+    types: [ opened, synchronize, reopened ]
   workflow_dispatch:
 
 jobs:
   # First job: Build shared Kotlin Multiplatform code
   shared-build:
     runs-on: ubuntu-latest
+    # Skip if this is a push event and there's an open PR for the same branch
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' || (github.event_name == 'push' && !contains(github.event.head_commit.message, '[skip ci]'))
     outputs:
       cache-key: ${{ steps.cache-key.outputs.key }}
     
@@ -33,6 +36,16 @@ jobs:
         KEY="shared-kmp-${HASH}-${GRADLE_HASH}"
         echo "key=${KEY}" >> $GITHUB_OUTPUT
         echo "Generated cache key: ${KEY}"
+        
+    - name: Cache Kotlin Native dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.konan/dependencies
+          ~/.konan/kotlin-native-prebuilt-linux-*
+        key: ${{ runner.os }}-kotlin-native-${{ hashFiles('shared/build.gradle.kts', 'shared-core/build.gradle.kts') }}
+        restore-keys: |
+          ${{ runner.os }}-kotlin-native-
         
     - name: Cache Gradle and KMP shared build
       uses: actions/cache@v4
@@ -95,20 +108,6 @@ jobs:
         
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
-      
-    - name: Cache Android SDK and build tools
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.android/avd
-          ~/.android/adb*
-          ${{ env.ANDROID_HOME }}/platforms
-          ${{ env.ANDROID_HOME }}/platform-tools
-          ${{ env.ANDROID_HOME }}/build-tools
-          ${{ env.ANDROID_HOME }}/ndk
-        key: ${{ runner.os }}-android-sdk-${{ hashFiles('androidApp/build.gradle.kts') }}
-        restore-keys: |
-          ${{ runner.os }}-android-sdk-
       
     - name: Restore Gradle and KMP shared build cache
       uses: actions/cache@v4
