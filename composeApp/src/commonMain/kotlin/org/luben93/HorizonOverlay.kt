@@ -66,7 +66,7 @@ private fun filterVisiblePeaks(peaks: List<VisiblePeak>, currentAzimuth: Float?)
     }
     
     // Final limit: show at most 5 peaks to avoid clutter
-    return unobstructedPeaks.take(5)
+    return unobstructedPeaks.take(40)
 }
 
 /**
@@ -83,7 +83,7 @@ private fun isPeakObstructedBy(farPeak: VisiblePeak, closerPeak: VisiblePeak): B
     )
     
     // Peaks are in similar direction if bearing difference is less than 5 degrees
-    val inSimilarDirection = bearingDiff < 5.0
+    val inSimilarDirection = bearingDiff < 2.0
     
     // Closer peak blocks if it has higher or similar elevation angle
     val blocksElevation = closerPeak.elevationAngle >= farPeak.elevationAngle - 0.5 // 0.5 degree tolerance

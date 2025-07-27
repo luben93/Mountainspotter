@@ -63,7 +63,7 @@ class MountainRepository {
         // If no local peaks, try fetching from the API with timeout
         try {
             // Reduce radius for faster API calls and better performance
-            val adjustedRadius = minOf(radiusKm, 25.0) // Cap at 25km for performance
+            val adjustedRadius = radiusKm // minOf(radiusKm, 25.0) // Cap at 25km for performance
             val apiPeaks = overpassApiService.getPeaksNearLocation(location, adjustedRadius)
 
             val peaksToCache = if (apiPeaks.isNotEmpty()) {
