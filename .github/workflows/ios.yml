@@ -80,7 +80,21 @@ jobs:
         echo "Creating iOS archive for device..."
         xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration Release -destination 'generic/platform=iOS' -archivePath iosApp.xcarchive archive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
         
-    - name: Export IPA
+    - name: Check for signing team availability
+      id: check-team
+      run: |
+        cd iosApp
+        # Check if DEVELOPMENT_TEAM is available in environment or if we have signing certificates
+        if [ -n "${{ secrets.IOS_DEVELOPMENT_TEAM }}" ] || [ -n "${{ secrets.IOS_CERTIFICATE }}" ]; then
+          echo "has-team=true" >> $GITHUB_OUTPUT
+          echo "Development team or certificates available for signing"
+        else
+          echo "has-team=false" >> $GITHUB_OUTPUT
+          echo "No development team or certificates available - will skip IPA export"
+        fi
+        
+    - name: Export IPA (if team available)
+      if: steps.check-team.outputs.has-team == 'true'
       run: |
         cd iosApp
         if [ -d "iosApp.xcarchive" ]; then
@@ -94,7 +108,13 @@ jobs:
           exit 1
         fi
         
-    - name: Upload iOS build artifacts
+    - name: Skip IPA export (no team available)
+      if: steps.check-team.outputs.has-team == 'false'
+      run: |
+        echo "Skipping IPA export - no development team or certificates available"
+        echo "Archive was created successfully but cannot be exported without proper signing setup"
+        
+    - name: Upload iOS build artifacts (conditional)
       uses: actions/upload-artifact@v4
       with:
         name: mountainspotter-ios-build
@@ -102,4 +122,4 @@ jobs:
           iosApp/iosApp.xcarchive
           iosApp/*.ipa
         retention-days: 30
-        if-no-files-found: error
+        if-no-files-found: warn
