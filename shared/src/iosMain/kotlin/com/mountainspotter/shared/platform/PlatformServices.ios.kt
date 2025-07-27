@@ -35,6 +35,12 @@ object UnifiedSensorManager {
     val compassFlow = _compassFlow.asSharedFlow()
 
     private var isStarted = false
+    
+    // Compass smoothing variables
+    private var lastAzimuth: Float = 0f
+    private var lastUpdateTime: Long = 0
+    private val smoothingFactor = 0.1f // Lower values = more smoothing
+    private val minUpdateInterval = 100L // Minimum 100ms between updates
 
     fun startSensors() {
         if (isStarted) return
@@ -55,7 +61,7 @@ object UnifiedSensorManager {
         locationManager.delegate = delegate
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
         locationManager.distanceFilter = 1.0
-        locationManager.headingFilter = 1.0
+        locationManager.headingFilter = 2.0 // Increase heading filter to reduce noise
 
         val authStatus = CLLocationManager.authorizationStatus()
         println("UnifiedSensorManager: Auth status: $authStatus")
@@ -85,7 +91,7 @@ object UnifiedSensorManager {
 
     private fun startMotionUpdates() {
         if (motionManager.deviceMotionAvailable) {
-            motionManager.deviceMotionUpdateInterval = 0.1
+            motionManager.deviceMotionUpdateInterval = 0.2 // Reduce frequency from 0.1 to 0.2
             motionManager.startDeviceMotionUpdatesToQueue(mainQueue) { motion, error ->
                 if (error != null) {
                     println("UnifiedSensorManager: Motion error: ${error.localizedDescription}")
@@ -122,6 +128,54 @@ object UnifiedSensorManager {
             else -> false
         }
     }
+    
+    /**
+     * Smooth compass values to reduce jitter, handling the circular nature of compass readings
+     */
+    private fun smoothCompassValue(lastValue: Float, newValue: Float, factor: Float): Float {
+        var diff = newValue - lastValue
+        
+        // Handle wrapping around 0/360 degrees
+        if (diff > 180f) {
+            diff -= 360f
+        } else if (diff < -180f) {
+            diff += 360f
+        }
+        
+        val smoothed = lastValue + factor * diff
+        return when {
+            smoothed < 0f -> smoothed + 360f
+            smoothed >= 360f -> smoothed - 360f
+            else -> smoothed
+        }
+    }
+    
+    fun updateCompassWithSmoothing(rawAzimuth: Float, pitch: Float, roll: Float) {
+        val currentTime = System.currentTimeMillis()
+        
+        // Apply time-based throttling and smoothing
+        if (currentTime - lastUpdateTime >= minUpdateInterval) {
+            val normalizedAzimuth = if (rawAzimuth < 0) rawAzimuth + 360f else rawAzimuth
+            
+            // Apply exponential smoothing to reduce jitter
+            val smoothedAzimuth = if (lastUpdateTime == 0L) {
+                normalizedAzimuth
+            } else {
+                smoothCompassValue(lastAzimuth, normalizedAzimuth, smoothingFactor)
+            }
+            
+            lastAzimuth = smoothedAzimuth
+            lastUpdateTime = currentTime
+            
+            val compassData = CompassData(
+                azimuth = smoothedAzimuth,
+                pitch = pitch,
+                roll = roll
+            )
+            println("UnifiedSensorManager: Smoothed compass: azimuth=$smoothedAzimuth, pitch=$pitch, roll=$roll")
+            _compassFlow.tryEmit(compassData)
+        }
+    }
 }
 
 private class UnifiedSensorDelegate(
@@ -156,13 +210,8 @@ private class UnifiedSensorDelegate(
         println("UnifiedSensorDelegate: Heading: $azimuth degrees")
 
         if (azimuth >= 0) {
-            val compassData = CompassData(
-                azimuth = azimuth,
-                pitch = lastPitch,
-                roll = lastRoll
-            )
-            println("UnifiedSensorDelegate: Compass: azimuth=$azimuth, pitch=$lastPitch, roll=$lastRoll")
-            onCompassUpdate(compassData)
+            // Use smoothing through the manager
+            UnifiedSensorManager.updateCompassWithSmoothing(azimuth, lastPitch, lastRoll)
         }
     }
 

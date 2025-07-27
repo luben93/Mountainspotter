@@ -60,19 +60,21 @@ class MountainRepository {
             return localPeaks
         }
 
-        // If no local peaks, try fetching from the API
+        // If no local peaks, try fetching from the API with timeout
         try {
-            val apiPeaks = overpassApiService.getPeaksNearLocation(location, radiusKm)
+            // Reduce radius for faster API calls and better performance
+            val adjustedRadius = minOf(radiusKm, 25.0) // Cap at 25km for performance
+            val apiPeaks = overpassApiService.getPeaksNearLocation(location, adjustedRadius)
 
             val peaksToCache = if (apiPeaks.isNotEmpty()) {
-                // If API returns peaks, fetch images and prepare for caching
+                // If API returns peaks, add placeholder images quickly (no network calls)
                 imageCacheService.fetchAndCacheImages(apiPeaks)
             } else {
-                // If API is empty, use all fallback peaks as a last resort
-                fallbackPeaks
+                // If API is empty, use fallback peaks with placeholder images
+                imageCacheService.fetchAndCacheImages(fallbackPeaks)
             }
 
-            // Update cache with the result (either from API or all fallback)
+            // Update cache with the result (either from API or fallback with images)
             cachedPeaks = peaksToCache
             lastLocation = location
             lastRadius = radiusKm
@@ -80,9 +82,13 @@ class MountainRepository {
             return peaksToCache
 
         } catch (e: Exception) {
-            println("Error fetching peaks from API, using all fallback data: ${e.message}")
-            // In case of API error, use all fallback peaks
-            return fallbackPeaks
+            println("Error fetching peaks from API, using fallback data: ${e.message}")
+            // In case of API error, use fallback peaks with images
+            val fallbackWithImages = imageCacheService.fetchAndCacheImages(fallbackPeaks)
+            cachedPeaks = fallbackWithImages
+            lastLocation = location
+            lastRadius = radiusKm
+            return fallbackWithImages
         }
     }
     

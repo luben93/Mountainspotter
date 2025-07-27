@@ -21,19 +21,32 @@ import com.mountainspotter.shared.model.VisiblePeak
 import kotlin.math.*
 
 /**
- * Filter visible peaks to show only those with known elevation and not obstructed by closer peaks
+ * Filter visible peaks to show only those with known elevation, not obstructed by closer peaks,
+ * and within the current compass field of view
  */
-private fun filterVisiblePeaks(peaks: List<VisiblePeak>): List<VisiblePeak> {
+private fun filterVisiblePeaks(peaks: List<VisiblePeak>, currentAzimuth: Float?): List<VisiblePeak> {
     // First filter: only show peaks with known elevation (greater than 0)
     val peaksWithElevation = peaks.filter { peak ->
         peak.peak.elevation > 0.0
     }
     
-    // Second filter: remove peaks that are obstructed by closer/higher peaks
+    // Second filter: only show peaks within compass field of view (90 degrees total, 45 each side)
+    val peaksInView = if (currentAzimuth != null) {
+        peaksWithElevation.filter { peak ->
+            val relativeBearing = (peak.bearing - currentAzimuth + 360) % 360
+            val signedAngle = if (relativeBearing > 180) relativeBearing - 360 else relativeBearing
+            // Show peaks within 45 degrees of current compass direction
+            kotlin.math.abs(signedAngle) <= 45.0
+        }
+    } else {
+        peaksWithElevation
+    }
+    
+    // Third filter: remove peaks that are obstructed by closer/higher peaks
     val unobstructedPeaks = mutableListOf<VisiblePeak>()
     
     // Sort peaks by distance (closest first)
-    val sortedPeaks = peaksWithElevation.sortedBy { it.distance }
+    val sortedPeaks = peaksInView.sortedBy { it.distance }
     
     for (peak in sortedPeaks) {
         var isObstructed = false
@@ -52,7 +65,8 @@ private fun filterVisiblePeaks(peaks: List<VisiblePeak>): List<VisiblePeak> {
         }
     }
     
-    return unobstructedPeaks
+    // Final limit: show at most 5 peaks to avoid clutter
+    return unobstructedPeaks.take(5)
 }
 
 /**
@@ -98,8 +112,8 @@ fun HorizonOverlay(
                 strokeWidth = 2.dp.toPx()
             )
 
-            // Filter peaks to only show those with known elevation and not obstructed
-            val filteredPeaks = filterVisiblePeaks(visiblePeaks)
+            // Filter peaks to only show those with known elevation, not obstructed, and in field of view
+            val filteredPeaks = filterVisiblePeaks(visiblePeaks, azimuth)
 
             // Draw visible peaks
             filteredPeaks.forEach { peak ->
@@ -140,13 +154,13 @@ fun HorizonOverlay(
                         strokeWidth = 2.dp.toPx()
                     )
 
-                    // Draw peak name and elevation as text
-                    val peakText = "${peak.peak.name}\n${peak.peak.elevation.formatDecimal(0)}m"
+                    // Draw peak name only (simplified text to reduce clutter)
+                    val peakText = peak.peak.name
                     val textStyle = TextStyle(
                         color = Color.White,
-                        fontSize = 12.sp,
+                        fontSize = 10.sp, // Reduced from 12sp
                         fontWeight = FontWeight.Bold,
-                        background = Color.Black.copy(alpha = 0.7f)
+                        background = Color.Black.copy(alpha = 0.8f) // Increased opacity for better readability
                     )
                     
                     val textLayoutResult = textMeasurer.measure(peakText, textStyle)

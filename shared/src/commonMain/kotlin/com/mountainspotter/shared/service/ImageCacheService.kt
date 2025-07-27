@@ -14,12 +14,15 @@ class ImageCacheService(private val httpClient: HttpClient) {
     
     /**
      * Fetch and cache images for the given mountain peaks
-     * This implementation uses a simple Wikipedia/Wikimedia image search approach
+     * Optimized for Android performance - skip image fetching for better loading times
      */
     suspend fun fetchAndCacheImages(peaks: List<MountainPeak>): List<MountainPeak> {
+        // For performance reasons, especially on Android, skip actual image fetching
+        // and just use placeholder images. This significantly improves loading times.
         return peaks.map { peak ->
-            val imageUrl = getImageUrl(peak)
-            peak.copy(imageUrl = imageUrl)
+            val placeholderUrl = generatePlaceholderImageUrl(peak)
+            imageUrlMap[peak.id] = placeholderUrl
+            peak.copy(imageUrl = placeholderUrl)
         }
     }
     

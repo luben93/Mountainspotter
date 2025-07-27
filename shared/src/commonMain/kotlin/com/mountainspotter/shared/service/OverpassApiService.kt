@@ -80,7 +80,7 @@ class OverpassApiService(private val httpClient: HttpClient) {
     private fun buildOverpassQuery(bbox: BoundingBox, minElevation: Double?): String {
 
         return """
-            [out:json][timeout:25];
+            [out:json][timeout:15];
             (
               node["natural"="peak"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
             );
