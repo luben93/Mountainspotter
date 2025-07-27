@@ -5,3 +5,12 @@ build/
 /local.properties
 /.kotlin/
 *.html
+
+# Build cache and temporary files
+.gradle-cache/
+*.tmp
+*.log
+
+# Exclude build reports and generated files
+**/build/reports/
+**/build/generated/

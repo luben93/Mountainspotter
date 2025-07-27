@@ -1,10 +1,8 @@
-name: iOS Build
+name: iOS Build (Legacy)
 
+# This workflow is now deprecated in favor of the unified build.yml workflow  
+# Only kept for manual dispatch when needed
 on:
-  push:
-    branches: [ main, develop, "copilot/**" ]
-  pull_request:
-    branches: [ main, develop ]
   workflow_dispatch:
 
 jobs:
@@ -21,12 +19,35 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
         
+    - name: Cache Kotlin Native dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.konan/dependencies
+          ~/.konan/kotlin-native-prebuilt-macos-*
+        key: ${{ runner.os }}-kotlin-native-${{ hashFiles('shared/build.gradle.kts', 'shared-core/build.gradle.kts') }}
+        restore-keys: |
+          ${{ runner.os }}-kotlin-native-
+          
+    - name: Cache Xcode DerivedData
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/Library/Developer/Xcode/DerivedData
+          ~/Library/Caches/com.apple.dt.Xcode
+        key: ${{ runner.os }}-xcode-deriveddata-${{ hashFiles('iosApp/iosApp.xcodeproj/**') }}
+        restore-keys: |
+          ${{ runner.os }}-xcode-deriveddata-
+        
     - name: Cache Gradle packages
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: |
           ~/.gradle/caches
           ~/.gradle/wrapper
+          ~/.gradle/kotlin-dsl
+          build/kotlin-build-cache
+          build/kotlin
         key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
         restore-keys: |
           ${{ runner.os }}-gradle-
@@ -36,9 +57,11 @@ jobs:
       
     - name: Build Kotlin Multiplatform shared frameworks
       run: |
+        echo "Building shared frameworks for iOS..."
         ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64 --stacktrace --no-daemon
         ./gradlew :shared:linkDebugFrameworkIosArm64 --stacktrace --no-daemon
         ./gradlew :shared:linkDebugFrameworkIosX64 --stacktrace --no-daemon
+        echo "Shared frameworks build completed"
       
     - name: Setup Xcode
       uses: maxim-lobanov/setup-xcode@v1
@@ -48,23 +71,50 @@ jobs:
     - name: Build iOS App for Simulator
       run: |
         cd iosApp
-        xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' build || echo "Simulator build failed, but continuing..."
+        echo "Building iOS app for simulator..."
+        xcodebuild -scheme iosApp -sdk iphonesimulator -configuration Debug build -project iosApp.xcodeproj
         
     - name: Build iOS App for Device (Archive)
       run: |
         cd iosApp
-        xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration Release -destination 'generic/platform=iOS' -archivePath iosApp.xcarchive archive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO || echo "Device archive failed, but continuing..."
+        echo "Creating iOS archive for device..."
+        xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration Release -destination 'generic/platform=iOS' -archivePath iosApp.xcarchive archive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
         
-    - name: Export IPA
+    - name: Check for signing team availability
+      id: check-team
+      run: |
+        cd iosApp
+        # Check if DEVELOPMENT_TEAM is available in environment or if we have signing certificates
+        if [ -n "${{ secrets.IOS_DEVELOPMENT_TEAM }}" ] || [ -n "${{ secrets.IOS_CERTIFICATE }}" ]; then
+          echo "has-team=true" >> $GITHUB_OUTPUT
+          echo "Development team or certificates available for signing"
+        else
+          echo "has-team=false" >> $GITHUB_OUTPUT
+          echo "No development team or certificates available - will skip IPA export"
+        fi
+        
+    - name: Export IPA (if team available)
+      if: steps.check-team.outputs.has-team == 'true'
       run: |
         cd iosApp
         if [ -d "iosApp.xcarchive" ]; then
-          xcodebuild -exportArchive -archivePath iosApp.xcarchive -exportPath . -exportOptionsPlist ExportOptions.plist || echo "Export failed, but archive was created successfully"
+          echo "Archive found, attempting to export IPA..."
+          xcodebuild -exportArchive -archivePath iosApp.xcarchive -exportPath . -exportOptionsPlist ExportOptions.plist
+          echo "IPA export completed"
         else
-          echo "No archive found, skipping IPA export"
+          echo "ERROR: No archive found at iosApp.xcarchive"
+          echo "Available files in iosApp directory:"
+          ls -la
+          exit 1
         fi
         
-    - name: Upload iOS build artifacts
+    - name: Skip IPA export (no team available)
+      if: steps.check-team.outputs.has-team == 'false'
+      run: |
+        echo "Skipping IPA export - no development team or certificates available"
+        echo "Archive was created successfully but cannot be exported without proper signing setup"
+        
+    - name: Upload iOS build artifacts (conditional)
       uses: actions/upload-artifact@v4
       with:
         name: mountainspotter-ios-build
