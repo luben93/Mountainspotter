@@ -36,9 +36,11 @@ jobs:
       
     - name: Build Kotlin Multiplatform shared frameworks
       run: |
+        echo "Building shared frameworks for iOS..."
         ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64 --stacktrace --no-daemon
         ./gradlew :shared:linkDebugFrameworkIosArm64 --stacktrace --no-daemon
         ./gradlew :shared:linkDebugFrameworkIosX64 --stacktrace --no-daemon
+        echo "Shared frameworks build completed"
       
     - name: Setup Xcode
       uses: maxim-lobanov/setup-xcode@v1
