@@ -8,7 +8,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.mountainspotter.shared.model.CompassData
 import com.mountainspotter.shared.model.VisiblePeak
 import kotlin.math.*
@@ -19,6 +26,8 @@ fun HorizonOverlay(
     compassData: CompassData?,
     modifier: Modifier = Modifier
 ) {
+    val textMeasurer = rememberTextMeasurer()
+    
     Canvas(modifier = modifier) {
         compassData?.let { compass ->
             val azimuth = compass.azimuth
@@ -66,23 +75,37 @@ fun HorizonOverlay(
                         strokeWidth = 2.dp.toPx()
                     )
 
-                    // Instead of using platform-specific text drawing,
-                    // just draw simple shapes to indicate peaks
-                    drawCircle(
-                        color = Color.Yellow,
-                        radius = 3.dp.toPx(),
-                        center = Offset(peakX, peakY - 15.dp.toPx())
+                    // Draw peak name and elevation as text
+                    val peakText = "${peak.peak.name}\n${peak.peak.elevation.formatDecimal(0)}m"
+                    val textStyle = TextStyle(
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        background = Color.Black.copy(alpha = 0.7f)
+                    )
+                    
+                    val textLayoutResult = textMeasurer.measure(peakText, textStyle)
+                    val textWidth = textLayoutResult.size.width
+                    val textHeight = textLayoutResult.size.height
+                    
+                    // Position text above the peak marker, centered horizontally
+                    val textX = (peakX - textWidth / 2f).coerceIn(0f, size.width - textWidth)
+                    val textY = (peakY - 20.dp.toPx() - textHeight).coerceAtLeast(0f)
+                    
+                    drawText(
+                        textLayoutResult = textLayoutResult,
+                        topLeft = Offset(textX, textY)
                     )
                 }
             }
 
             // Draw compass indicator
-            drawCompassIndicator(azimuth)
+            drawCompassIndicator(azimuth, textMeasurer)
         }
     }
 }
 
-private fun DrawScope.drawCompassIndicator(azimuth: Float) {
+private fun DrawScope.drawCompassIndicator(azimuth: Float, textMeasurer: TextMeasurer) {
     // Draw a simple compass indicator at the top
     val centerX = size.width / 2
     val centerY = 50.dp.toPx()
@@ -95,10 +118,15 @@ private fun DrawScope.drawCompassIndicator(azimuth: Float) {
         center = Offset(centerX, centerY)
     )
 
-    // Draw cardinal points with lines instead of text
-    val directions = listOf(0f, 90f, 180f, 270f) // N, E, S, W
+    // Draw cardinal points with text labels
+    val directions = listOf(
+        Pair(0f, "N"),
+        Pair(90f, "E"), 
+        Pair(180f, "S"),
+        Pair(270f, "W")
+    )
 
-    directions.forEach { direction ->
+    directions.forEach { (direction, label) ->
         val relativeDirection = (direction - azimuth + 360) % 360
         val angleRadians = relativeDirection * PI.toFloat() / 180f
         val x = centerX + cos(angleRadians) * radius * 0.7f
@@ -110,6 +138,21 @@ private fun DrawScope.drawCompassIndicator(azimuth: Float) {
             start = Offset(x, y),
             end = Offset(x + 10f * cos(angleRadians), y - 10f * sin(angleRadians)),
             strokeWidth = 2.dp.toPx()
+        )
+        
+        // Draw cardinal direction label
+        val textStyle = TextStyle(
+            color = Color.White,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold
+        )
+        val textLayoutResult = textMeasurer.measure(label, textStyle)
+        val textWidth = textLayoutResult.size.width
+        val textHeight = textLayoutResult.size.height
+        
+        drawText(
+            textLayoutResult = textLayoutResult,
+            topLeft = Offset(x - textWidth / 2f, y - textHeight / 2f)
         )
     }
 
