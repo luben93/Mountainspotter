@@ -30,17 +30,29 @@ This Kotlin Multiplatform Mobile (KMM) project can be built for both Android and
 
 The project includes GitHub Actions workflows for automated building:
 
-### Android Build (`/.github/workflows/android.yml`)
-- Triggers on pushes to `main`, `develop`, and `copilot/**` branches
-- Sets up Android SDK automatically
-- Builds debug APK
-- Uploads APK as artifact for download
+### Main Build Workflow (`/.github/workflows/build.yml`)
+- Triggers on pushes to `develop` and `copilot/**` branches
+- Triggers on pull requests to `main` and `develop` branches
+- Uses the reusable build workflow to build all platforms (Android and iOS)
+- Builds debug and release APKs for Android
+- Creates iOS archives (when running on macOS)
+- Uploads build artifacts for download
 
-### iOS Build (`/.github/workflows/ios.yml`)
-- Triggers on pushes to `main`, `develop`, and `copilot/**` branches  
-- Sets up Xcode on macOS runner
-- Builds shared framework and iOS app
-- Attempts to create archive for iOS
+### Release Workflow (`/.github/workflows/release.yml`)
+- Triggers on pushes to `main` branch
+- Uses the same reusable build workflow as the main build
+- Creates GitHub releases with versioned APKs
+- Automatically tags releases with version numbers
+
+### Reusable Build Workflow (`/.github/workflows/build-reusable.yml`)
+- Internal workflow that contains the shared build logic
+- Supports both debug and release build types
+- Handles Android and iOS builds with proper caching
+- Can be called by other workflows to avoid code duplication
+
+### Legacy Workflows
+- `android.yml` and `ios.yml` are legacy workflows kept for manual dispatch only
+- Use the main `build.yml` workflow for regular development
 
 ## Installation
 
