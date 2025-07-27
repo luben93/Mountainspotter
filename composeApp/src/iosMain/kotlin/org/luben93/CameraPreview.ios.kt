@@ -14,6 +14,7 @@ import kotlinx.coroutines.withContext
 import platform.AVFoundation.*
 import platform.CoreGraphics.CGRect
 import platform.CoreGraphics.CGRectZero
+import platform.CoreGraphics.CGRectMake
 import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSOperationQueue
 import platform.Foundation.NSError
@@ -74,19 +75,31 @@ actual fun CameraPreview(
         }
     }
 
-    if (permissionGranted && sessionRunning) {
+    if (permissionGranted && sessionRunning && previewLayer != null) {
         UIKitView(
             modifier = modifier,
             factory = {
                 println("CameraPreview: Creating UIView")
                 val view = UIView()
                 view.backgroundColor = UIColor.blackColor
+                
+                // Ensure the view has a proper frame initially
+                view.setFrame(platform.CoreGraphics.CGRectMake(0.0, 0.0, 300.0, 400.0))
 
-                // Add preview layer immediately if available
+                // Add preview layer and configure it properly
                 previewLayer?.let { layer ->
+                    // Remove from any existing parent first
+                    layer.removeFromSuperlayer()
+                    
                     view.layer.addSublayer(layer)
+                    
+                    // Set initial frame
                     layer.frame = view.bounds
-                    println("CameraPreview: Added preview layer to view")
+                    
+                    // Make sure the layer is properly configured
+                    layer.videoGravity = platform.AVFoundation.AVLayerVideoGravityResizeAspectFill
+                    
+                    println("CameraPreview: Added preview layer to view with frame: ${view.bounds}")
                 }
 
                 view
@@ -94,10 +107,10 @@ actual fun CameraPreview(
             update = { view ->
                 // Update preview layer frame when view bounds change
                 previewLayer?.let { layer ->
-                    CATransaction.begin()
-                    CATransaction.setValue(true, kCATransactionDisableActions)
+                    platform.QuartzCore.CATransaction.begin()
+                    platform.QuartzCore.CATransaction.setValue(true, platform.QuartzCore.kCATransactionDisableActions)
                     layer.frame = view.bounds
-                    CATransaction.commit()
+                    platform.QuartzCore.CATransaction.commit()
                     println("CameraPreview: Updated preview layer frame to ${view.bounds}")
                 }
             },
@@ -205,8 +218,17 @@ private suspend fun setupCameraSession(
 
     // Start session on background queue to avoid blocking UI
     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-        session.startRunning()
-        println("setupCameraSession: Session started running")
+        try {
+            if (!session.running) {
+                session.startRunning()
+                println("setupCameraSession: Session started running: ${session.running}")
+            } else {
+                println("setupCameraSession: Session was already running")
+            }
+        } catch (e: Exception) {
+            println("setupCameraSession: Error starting session: $e")
+            throw e
+        }
     }
 
     return Pair(session, previewLayer)
