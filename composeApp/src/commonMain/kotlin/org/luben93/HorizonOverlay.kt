@@ -20,6 +20,63 @@ import com.mountainspotter.shared.model.CompassData
 import com.mountainspotter.shared.model.VisiblePeak
 import kotlin.math.*
 
+/**
+ * Filter visible peaks to show only those with known elevation and not obstructed by closer peaks
+ */
+private fun filterVisiblePeaks(peaks: List<VisiblePeak>): List<VisiblePeak> {
+    // First filter: only show peaks with known elevation (greater than 0)
+    val peaksWithElevation = peaks.filter { peak ->
+        peak.peak.elevation > 0.0
+    }
+    
+    // Second filter: remove peaks that are obstructed by closer/higher peaks
+    val unobstructedPeaks = mutableListOf<VisiblePeak>()
+    
+    // Sort peaks by distance (closest first)
+    val sortedPeaks = peaksWithElevation.sortedBy { it.distance }
+    
+    for (peak in sortedPeaks) {
+        var isObstructed = false
+        
+        // Check if this peak is obstructed by any closer peak
+        for (closerPeak in unobstructedPeaks) {
+            if (isPeakObstructedBy(peak, closerPeak)) {
+                isObstructed = true
+                break
+            }
+        }
+        
+        // If not obstructed, add to visible peaks
+        if (!isObstructed) {
+            unobstructedPeaks.add(peak)
+        }
+    }
+    
+    return unobstructedPeaks
+}
+
+/**
+ * Check if a peak is obstructed by another closer peak
+ * Two peaks are considered to obstruct each other if:
+ * 1. They are in similar direction (bearing difference < 5 degrees)
+ * 2. The closer peak has a higher or similar elevation angle
+ */
+private fun isPeakObstructedBy(farPeak: VisiblePeak, closerPeak: VisiblePeak): Boolean {
+    // Calculate bearing difference (accounting for circular nature of bearings)
+    val bearingDiff = minOf(
+        abs(farPeak.bearing - closerPeak.bearing),
+        360.0 - abs(farPeak.bearing - closerPeak.bearing)
+    )
+    
+    // Peaks are in similar direction if bearing difference is less than 5 degrees
+    val inSimilarDirection = bearingDiff < 5.0
+    
+    // Closer peak blocks if it has higher or similar elevation angle
+    val blocksElevation = closerPeak.elevationAngle >= farPeak.elevationAngle - 0.5 // 0.5 degree tolerance
+    
+    return inSimilarDirection && blocksElevation
+}
+
 @Composable
 fun HorizonOverlay(
     visiblePeaks: List<VisiblePeak>,
@@ -41,8 +98,11 @@ fun HorizonOverlay(
                 strokeWidth = 2.dp.toPx()
             )
 
+            // Filter peaks to only show those with known elevation and not obstructed
+            val filteredPeaks = filterVisiblePeaks(visiblePeaks)
+
             // Draw visible peaks
-            visiblePeaks.forEach { peak ->
+            filteredPeaks.forEach { peak ->
                 val peakBearing = peak.bearing
 
                 // Calculate relative bearing to peak from current compass direction
