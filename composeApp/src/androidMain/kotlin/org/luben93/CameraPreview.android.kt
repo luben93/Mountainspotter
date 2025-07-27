@@ -31,7 +31,10 @@ actual fun CameraPreview(
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraSelector = if (isFrontCamera) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
     
-    // Handle camera switch
+    // Initialize state variables first
+    val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
+    var cameraProvider: ProcessCameraProvider? by remember { mutableStateOf(null) }
+    var hasPermission by remember { mutableStateOf(false) }
     var previewView: PreviewView? by remember { mutableStateOf(null) }
 
     // Update camera when selector changes
@@ -53,10 +56,6 @@ actual fun CameraPreview(
             }
         }
     }
-
-    val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
-    var cameraProvider: ProcessCameraProvider? by remember { mutableStateOf(null) }
-    var hasPermission by remember { mutableStateOf(false) }
 
     // Check camera permission
     LaunchedEffect(Unit) {
