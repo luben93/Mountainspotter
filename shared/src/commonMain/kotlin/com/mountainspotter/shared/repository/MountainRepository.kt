@@ -72,6 +72,37 @@ class MountainRepository {
             country = "USA",
             region = "Cascade Range",
             imageUrl = "https://picsum.photos/seed/mount_rainier/400/300"
+        ),
+        // Pre-fetched Norwegian/Swedish peaks from Overpass API sample data
+        MountainPeak(
+            id = "peak_26862449",
+            name = "Inste Åbittinden",
+            location = Location(62.7211109, 8.2269910, 1396.0),
+            elevation = 1396.0,
+            prominence = null,
+            country = "Norway",
+            region = "Scandinavia",
+            imageUrl = "https://picsum.photos/seed/inste_abittinden/400/300"
+        ),
+        MountainPeak(
+            id = "peak_26862501",
+            name = "Åreskutan",
+            location = Location(63.4313938, 13.0932779, 1420.0),
+            elevation = 1420.0,
+            prominence = null,
+            country = "Sweden",
+            region = "Scandinavia",
+            imageUrl = "https://picsum.photos/seed/areskutan/400/300"
+        ),
+        MountainPeak(
+            id = "peak_26862513",
+            name = "Gråhøgda",
+            location = Location(62.1133333, 11.2963889, 1436.0),
+            elevation = 1436.0,
+            prominence = null,
+            country = "Norway",
+            region = "Scandinavia",
+            imageUrl = "https://picsum.photos/seed/grahogda/400/300"
         )
     )
     
