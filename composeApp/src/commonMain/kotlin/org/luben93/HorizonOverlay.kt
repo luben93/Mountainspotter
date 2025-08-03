@@ -25,7 +25,7 @@ import kotlin.math.*
 
 /**
  * Filter visible peaks to show only those with known elevation, not obstructed by closer peaks,
- * and within the current camera field of view
+ * and within the current camera field of view (accounting for zoom)
  */
 private fun filterVisiblePeaks(
     peaks: List<VisiblePeak>, 
@@ -38,13 +38,15 @@ private fun filterVisiblePeaks(
     }
     
     // Second filter: only show peaks within camera field of view
-    val halfFOV = cameraParams.fieldOfView / 2.0
+    // Use base field of view (before zoom) to avoid filtering out peaks during zoom
+    val baseFOV = cameraParams.fieldOfView * cameraParams.zoomLevel
+    val halfFOV = baseFOV / 2.0
     val peaksInView = if (currentAzimuth != null) {
         peaksWithElevation.filter { peak ->
             val correctedAzimuth = currentAzimuth + cameraParams.compassCorrection
             val relativeBearing = (peak.bearing - correctedAzimuth + 360) % 360
             val signedAngle = if (relativeBearing > 180) relativeBearing - 360 else relativeBearing
-            // Show peaks within camera field of view
+            // Show peaks within the base camera field of view to maintain visibility during zoom
             kotlin.math.abs(signedAngle) <= halfFOV
         }
     } else {
@@ -74,7 +76,7 @@ private fun filterVisiblePeaks(
         }
     }
     
-    // Final limit: show at most 5 peaks to avoid clutter
+    // Final limit: show at most 40 peaks to avoid clutter
     return unobstructedPeaks.take(40)
 }
 
@@ -129,9 +131,10 @@ fun HorizonOverlay(
         compassData?.let { compass ->
             val azimuth = compass.azimuth + cameraParameters.compassCorrection
             val halfScreenWidth = size.width / 2
+            // Use current (zoomed) field of view for drawing calculations
             val halfFOV = cameraParameters.fieldOfView / 2f
 
-            // Apply camera translation
+            // Apply camera translation - this centers the view
             val centerX = halfScreenWidth + cameraParameters.translationX
             val centerY = size.height / 2 + cameraParameters.translationY
 
@@ -146,7 +149,7 @@ fun HorizonOverlay(
             // Filter peaks to only show those with known elevation, not obstructed, and in field of view
             val filteredPeaks = filterVisiblePeaks(visiblePeaks, azimuth, cameraParameters)
 
-            // Draw visible peaks
+            // Draw visible peaks with proper zoom-aware coordinate mapping
             filteredPeaks.forEach { peak ->
                 val peakBearing = peak.bearing
 
@@ -156,12 +159,12 @@ fun HorizonOverlay(
                 // Convert relativeBearing (0-360) to signed angle (-180 to +180)
                 val signedAngle = if (relativeBearing > 180) relativeBearing - 360 else relativeBearing
 
-                // Map signed angle to screen position using camera FOV
+                // Map signed angle to screen position using zoomed camera FOV
+                // The zoom level affects how the angular range maps to screen pixels
                 val peakX = (centerX + (signedAngle / halfFOV) * halfScreenWidth).toFloat()
-                    .coerceIn(0f, size.width)
 
-                // Draw peak indicator
-                if (peakX >= 0 && peakX <= size.width) {
+                // Draw peak indicator if it's within the screen bounds
+                if (peakX >= -50f && peakX <= size.width + 50f) { // Allow some margin for partially visible peaks
                     val elevationAngle = peak.elevationAngle.toFloat()
                     // Convert elevation angle to y position with zoom applied
                     val elevationScale = 10f * cameraParameters.zoomLevel
@@ -169,43 +172,47 @@ fun HorizonOverlay(
 
                     // Draw peak marker with different colors based on calibration
                     val peakColor = if (cameraParameters.isCalibrated) Color.Red else Color.Magenta
+                    val markerRadius = (5 * cameraParameters.zoomLevel).coerceAtLeast(3f).dp.toPx()
                     drawCircle(
                         color = peakColor,
-                        radius = (5 * cameraParameters.zoomLevel).dp.toPx(),
+                        radius = markerRadius,
                         center = Offset(peakX, peakY)
                     )
 
                     // Draw line from horizon to peak
+                    val lineWidth = (2 * cameraParameters.zoomLevel).coerceAtLeast(1f).dp.toPx()
                     drawLine(
                         color = peakColor,
                         start = Offset(peakX, centerY),
                         end = Offset(peakX, peakY),
-                        strokeWidth = (2 * cameraParameters.zoomLevel).dp.toPx()
+                        strokeWidth = lineWidth
                     )
 
-                    // Draw peak name with zoom-adjusted text size
-                    val peakText = peak.peak.name
-                    val baseFontSize = 10.sp
-                    val adjustedFontSize = (baseFontSize.value * cameraParameters.zoomLevel).sp
-                    val textStyle = TextStyle(
-                        color = Color.White,
-                        fontSize = adjustedFontSize,
-                        fontWeight = FontWeight.Bold,
-                        background = Color.Black.copy(alpha = 0.8f)
-                    )
-                    
-                    val textLayoutResult = textMeasurer.measure(peakText, textStyle)
-                    val textWidth = textLayoutResult.size.width
-                    val textHeight = textLayoutResult.size.height
-                    
-                    // Position text above the peak marker, centered horizontally
-                    val textX = (peakX - textWidth / 2f).coerceIn(0f, size.width - textWidth)
-                    val textY = (peakY - 20.dp.toPx() - textHeight).coerceAtLeast(0f)
-                    
-                    drawText(
-                        textLayoutResult = textLayoutResult,
-                        topLeft = Offset(textX, textY)
-                    )
+                    // Draw peak name with zoom-adjusted text size, only if peak is fully visible
+                    if (peakX >= 0f && peakX <= size.width) {
+                        val peakText = peak.peak.name
+                        val baseFontSize = 10.sp
+                        val adjustedFontSize = (baseFontSize.value * cameraParameters.zoomLevel).coerceAtLeast(8f).sp
+                        val textStyle = TextStyle(
+                            color = Color.White,
+                            fontSize = adjustedFontSize,
+                            fontWeight = FontWeight.Bold,
+                            background = Color.Black.copy(alpha = 0.8f)
+                        )
+                        
+                        val textLayoutResult = textMeasurer.measure(peakText, textStyle)
+                        val textWidth = textLayoutResult.size.width
+                        val textHeight = textLayoutResult.size.height
+                        
+                        // Position text above the peak marker, centered horizontally
+                        val textX = (peakX - textWidth / 2f).coerceIn(0f, size.width - textWidth)
+                        val textY = (peakY - 20.dp.toPx() - textHeight).coerceAtLeast(0f)
+                        
+                        drawText(
+                            textLayoutResult = textLayoutResult,
+                            topLeft = Offset(textX, textY)
+                        )
+                    }
                 }
             }
 
