@@ -325,7 +325,7 @@ class CameraCalibrationService {
         val (translationX, translationY) = calculatePerspectiveCorrectedTranslation(features, frameWidth, frameHeight)
         
         return CameraParameters(
-            fieldOfView = estimatedFOV,
+            baseFOV = estimatedFOV,
             zoomLevel = 1f,
             translationX = translationX,
             translationY = translationY,
@@ -558,8 +558,8 @@ class CameraCalibrationService {
     fun updateZoomLevel(currentParams: CameraParameters, zoomFactor: Float): CameraParameters {
         val newZoomLevel = (currentParams.zoomLevel * zoomFactor).coerceIn(1f, 5f)
         return currentParams.copy(
-            zoomLevel = newZoomLevel,
-            fieldOfView = currentParams.fieldOfView / newZoomLevel
+            zoomLevel = newZoomLevel
+            // fieldOfView is automatically calculated from baseFOV and zoomLevel
         )
     }
     

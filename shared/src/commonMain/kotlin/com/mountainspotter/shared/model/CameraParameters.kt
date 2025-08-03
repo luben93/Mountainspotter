@@ -4,13 +4,19 @@ package com.mountainspotter.shared.model
  * Camera parameters for AI-based calibration and peak overlay
  */
 data class CameraParameters(
-    val fieldOfView: Float = 90f,        // Horizontal field of view in degrees
+    val baseFOV: Float = 90f,            // Base horizontal field of view in degrees (at 1x zoom)
     val zoomLevel: Float = 1f,           // Current zoom level (1.0 = no zoom)
     val translationX: Float = 0f,        // Horizontal translation offset in pixels
     val translationY: Float = 0f,        // Vertical translation offset in pixels
     val compassCorrection: Float = 0f,   // Compass correction in degrees
     val isCalibrated: Boolean = false    // Whether AI calibration has been performed
-)
+) {
+    /**
+     * Current effective field of view based on zoom level
+     */
+    val fieldOfView: Float
+        get() = baseFOV / zoomLevel
+}
 
 /**
  * AI calibration result containing estimated camera parameters

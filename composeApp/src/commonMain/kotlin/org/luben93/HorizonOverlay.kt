@@ -38,16 +38,16 @@ private fun filterVisiblePeaks(
     }
     
     // Second filter: only show peaks within camera field of view
-    // Use base field of view (before zoom) to avoid filtering out peaks during zoom
-    val baseFOV = cameraParams.fieldOfView * cameraParams.zoomLevel
-    val halfFOV = baseFOV / 2.0
+    // Use base field of view to determine which peaks can potentially be visible
+    val baseFOV = cameraParams.baseFOV
+    val halfBaseFOV = baseFOV / 2.0
     val peaksInView = if (currentAzimuth != null) {
         peaksWithElevation.filter { peak ->
             val correctedAzimuth = currentAzimuth + cameraParams.compassCorrection
             val relativeBearing = (peak.bearing - correctedAzimuth + 360) % 360
             val signedAngle = if (relativeBearing > 180) relativeBearing - 360 else relativeBearing
-            // Show peaks within the base camera field of view to maintain visibility during zoom
-            kotlin.math.abs(signedAngle) <= halfFOV
+            // Show peaks within the base camera field of view (allows for zoom visibility)
+            kotlin.math.abs(signedAngle) <= halfBaseFOV
         }
     } else {
         peaksWithElevation

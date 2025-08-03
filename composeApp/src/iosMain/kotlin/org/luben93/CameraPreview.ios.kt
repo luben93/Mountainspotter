@@ -33,6 +33,7 @@ private sealed interface CameraAccess {
 actual fun CameraPreview(
     modifier: Modifier,
     isFrontCamera: Boolean,
+    zoomLevel: Float,
     onSwitchCamera: () -> Unit
 ) {
     var cameraAccess: CameraAccess by remember { mutableStateOf(CameraAccess.Undefined) }
@@ -81,7 +82,7 @@ actual fun CameraPreview(
                 )
             }
             CameraAccess.Authorized -> {
-                CameraView(isFrontCamera, modifier)
+                CameraView(isFrontCamera, zoomLevel, modifier)
             }
         }
     }
@@ -91,11 +92,42 @@ actual fun CameraPreview(
 @Composable
 private fun CameraView(
     isFrontCamera: Boolean,
+    zoomLevel: Float,
     modifier: Modifier
 ) {
     val cameraPosition = if (isFrontCamera) AVCaptureDevicePositionFront else AVCaptureDevicePositionBack
+    var currentCamera by remember { mutableStateOf<AVCaptureDevice?>(null) }
     
     println("iOS Camera: Setting up camera for position: $cameraPosition")
+
+    // Apply zoom when it changes
+    LaunchedEffect(zoomLevel, currentCamera) {
+        currentCamera?.let { camera ->
+            try {
+                val error = memScoped {
+                    val errorPtr = alloc<ObjCObjectVar<NSError?>>()
+                    camera.lockForConfiguration(errorPtr.ptr)
+                    errorPtr.value
+                }
+                
+                if (error == null) {
+                    // Clamp zoom level to camera's supported range
+                    val minZoom = camera.minAvailableVideoZoomFactor.toFloat()
+                    val maxZoom = camera.maxAvailableVideoZoomFactor.toFloat()
+                    val clampedZoom = zoomLevel.coerceIn(minZoom, maxZoom)
+                    
+                    camera.videoZoomFactor = clampedZoom.toDouble()
+                    camera.unlockForConfiguration()
+                    
+                    println("iOS Camera: Applied zoom: $clampedZoom (requested: $zoomLevel, range: $minZoom-$maxZoom)")
+                } else {
+                    println("iOS Camera: Failed to lock camera for zoom configuration: ${error.localizedDescription}")
+                }
+            } catch (e: Exception) {
+                println("iOS Camera: Exception setting zoom: ${e.message}")
+            }
+        }
+    }
 
     UIKitView(factory = {
         println("iOS Camera: Creating UIKitView factory")
@@ -148,6 +180,9 @@ private fun CameraView(
             }
 
             println("iOS Camera: Found camera: ${camera.localizedName}")
+            
+            // Store camera reference for zoom control
+            currentCamera = camera
 
             // Create device input
             val deviceInput = memScoped {

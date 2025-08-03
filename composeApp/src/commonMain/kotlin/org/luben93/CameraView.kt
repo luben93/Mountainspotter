@@ -21,6 +21,7 @@ import com.mountainspotter.shared.model.CameraParameters
 expect fun CameraPreview(
     modifier: Modifier = Modifier,
     isFrontCamera: Boolean = false,
+    zoomLevel: Float = 1f,
     onSwitchCamera: () -> Unit
 )
 
@@ -43,6 +44,7 @@ fun CameraView(
         CameraPreview(
             modifier = Modifier.fillMaxSize(),
             isFrontCamera = isFrontCamera,
+            zoomLevel = cameraParameters.zoomLevel,
             onSwitchCamera = { isFrontCamera = !isFrontCamera }
         )
 

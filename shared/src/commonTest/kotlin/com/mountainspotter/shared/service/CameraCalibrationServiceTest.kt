@@ -42,7 +42,7 @@ class CameraCalibrationServiceTest {
     @Test
     fun testUpdateZoomLevel_increasesZoom() {
         // Arrange
-        val initialParams = CameraParameters(zoomLevel = 1f, fieldOfView = 90f)
+        val initialParams = CameraParameters(zoomLevel = 1f, baseFOV = 90f)
         val zoomFactor = 2f
         
         // Act
@@ -56,7 +56,7 @@ class CameraCalibrationServiceTest {
     @Test
     fun testUpdateZoomLevel_clampsToMaxZoom() {
         // Arrange
-        val initialParams = CameraParameters(zoomLevel = 4f, fieldOfView = 22.5f)
+        val initialParams = CameraParameters(zoomLevel = 4f, baseFOV = 90f)
         val zoomFactor = 2f
         
         // Act
