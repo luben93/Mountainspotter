@@ -166,7 +166,7 @@ jobs:
         echo "APK renamed to include version: $SIGNED_APK_PATH"
         
     - name: Create Release
-      uses: ncipollo/create-release@v1
+      uses: ncipollo/create-release@v1.13.0
       with:
         tag: ${{ steps.version.outputs.version }}
         name: Mountain Spotter ${{ steps.version.outputs.version }}
