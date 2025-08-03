@@ -67,6 +67,10 @@ kotlin {
                 implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
                 implementation("com.google.android.gms:play-services-location:21.0.1")
                 implementation("androidx.compose.ui:ui-tooling-preview:1.5.4")
+                
+                // TensorFlow Lite for AI/ML capabilities
+                implementation("org.tensorflow:tensorflow-lite:2.13.0")
+                implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
             }
         }
         val iosX64Main by getting
