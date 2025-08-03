@@ -106,7 +106,7 @@ jobs:
           ${{ env.ANDROID_HOME }}/platform-tools
           ${{ env.ANDROID_HOME }}/build-tools
           ${{ env.ANDROID_HOME }}/ndk
-        key: ${{ runner.os }}-android-sdk-${{ hashFiles('androidApp/build.gradle.kts') }}
+        key: ${{ runner.os }}-android-sdk-${{ hashFiles('composeApp/build.gradle.kts') }}
         restore-keys: |
           ${{ runner.os }}-android-sdk-
       
@@ -151,14 +151,14 @@ jobs:
         VERSION_CODE: ${{ steps.version.outputs.version_code }}
       run: |
         echo "Building release APK using cached shared modules..."
-        ./gradlew :androidApp:assembleRelease --stacktrace --no-daemon --build-cache
+        ./gradlew :composeApp:assembleRelease --stacktrace --no-daemon --build-cache
       
     - name: Sign APK (if keystore available)
       env:
         VERSION_NAME: ${{ steps.version.outputs.version }}
       run: |
-        APK_PATH="androidApp/build/outputs/apk/release/androidApp-release-unsigned.apk"
-        SIGNED_APK_PATH="androidApp/build/outputs/apk/release/mountainspotter-${{ steps.version.outputs.version }}.apk"
+        APK_PATH="composeApp/build/outputs/apk/release/composeApp-release-unsigned.apk"
+        SIGNED_APK_PATH="composeApp/build/outputs/apk/release/mountainspotter-${{ steps.version.outputs.version }}.apk"
         
         # For now, just rename the unsigned APK to include version
         # In the future, this is where signing would happen with proper keystore
@@ -188,7 +188,7 @@ jobs:
           **Commit:** ${{ github.sha }}
           **Author:** ${{ github.event.head_commit.author.name }}
           **Message:** ${{ github.event.head_commit.message }}
-        artifacts: "androidApp/build/outputs/apk/release/mountainspotter-${{ steps.version.outputs.version }}.apk"
+        artifacts: "composeApp/build/outputs/apk/release/mountainspotter-${{ steps.version.outputs.version }}.apk"
         token: ${{ secrets.GITHUB_TOKEN }}
         draft: false
         prerelease: false
