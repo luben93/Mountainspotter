@@ -116,6 +116,7 @@ private fun CameraView(
                     val maxZoom = camera.maxAvailableVideoZoomFactor.toFloat()
                     val clampedZoom = zoomLevel.coerceIn(minZoom, maxZoom)
                     
+                    // Apply zoom to camera hardware
                     camera.videoZoomFactor = clampedZoom.toDouble()
                     camera.unlockForConfiguration()
                     
@@ -126,6 +127,8 @@ private fun CameraView(
             } catch (e: Exception) {
                 println("iOS Camera: Exception setting zoom: ${e.message}")
             }
+        } ?: run {
+            println("iOS Camera: Zoom requested ($zoomLevel) but camera not available yet")
         }
     }
 
@@ -183,6 +186,32 @@ private fun CameraView(
             
             // Store camera reference for zoom control
             currentCamera = camera
+            
+            // Apply initial zoom level if needed
+            if (zoomLevel != 1.0f) {
+                try {
+                    val error = memScoped {
+                        val errorPtr = alloc<ObjCObjectVar<NSError?>>()
+                        camera.lockForConfiguration(errorPtr.ptr)
+                        errorPtr.value
+                    }
+                    
+                    if (error == null) {
+                        val minZoom = camera.minAvailableVideoZoomFactor.toFloat()
+                        val maxZoom = camera.maxAvailableVideoZoomFactor.toFloat()
+                        val clampedZoom = zoomLevel.coerceIn(minZoom, maxZoom)
+                        
+                        camera.videoZoomFactor = clampedZoom.toDouble()
+                        camera.unlockForConfiguration()
+                        
+                        println("iOS Camera: Applied initial zoom: $clampedZoom (requested: $zoomLevel)")
+                    } else {
+                        println("iOS Camera: Failed to apply initial zoom: ${error.localizedDescription}")
+                    }
+                } catch (e: Exception) {
+                    println("iOS Camera: Exception applying initial zoom: ${e.message}")
+                }
+            }
 
             // Create device input
             val deviceInput = memScoped {
