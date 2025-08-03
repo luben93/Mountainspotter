@@ -30,7 +30,7 @@ class CameraCalibrationServiceTest {
         val compassData = CompassData(azimuth = 90f, pitch = 0f, roll = 0f)
         
         // Act
-        val result = calibrationService.calibrateCamera(peaks, compassData, 1920, 1080)
+        val result = calibrationService.calibrateCamera(peaks, compassData, 1920, 1080, null)
         
         // Assert
         assertTrue(result.estimatedParameters.isCalibrated)
