@@ -2,7 +2,6 @@ package com.mountainspotter.shared.service
 
 import com.mountainspotter.shared.model.*
 import com.mountainspotter.shared.ai.*
-import kotlinx.coroutines.delay
 import kotlin.math.*
 
 /**
@@ -35,9 +34,6 @@ class CameraCalibrationService {
         frameHeight: Int,
         cameraFrameData: ByteArray? = null
     ): CalibrationResult {
-        // Real AI processing time (50-150ms depending on model complexity)
-        delay(120)
-        
         val detectedFeatures = mutableListOf<DetectedFeature>()
         
         if (isAIInitialized && cameraFrameData != null) {
