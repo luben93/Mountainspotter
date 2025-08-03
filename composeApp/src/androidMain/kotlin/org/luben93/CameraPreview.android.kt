@@ -3,6 +3,7 @@ package org.luben93
 import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Log
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -25,15 +26,17 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 actual fun CameraPreview(
     modifier: Modifier,
     isFrontCamera: Boolean,
+    zoomLevel: Float,
     onSwitchCamera: () -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraSelector = if (isFrontCamera) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
     
-    // Initialize state variables first
+    // Initialize state variables first  
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
     var cameraProvider: ProcessCameraProvider? by remember { mutableStateOf(null) }
+    var camera: Camera? by remember { mutableStateOf(null) }
     var hasPermission by remember { mutableStateOf(false) }
     var previewView: PreviewView? by remember { mutableStateOf(null) }
 
@@ -45,7 +48,7 @@ actual fun CameraPreview(
                 preview.setSurfaceProvider(previewView!!.surfaceProvider)
                 
                 cameraProvider!!.unbindAll()
-                cameraProvider!!.bindToLifecycle(
+                camera = cameraProvider!!.bindToLifecycle(
                     lifecycleOwner,
                     cameraSelector,
                     preview
@@ -53,6 +56,30 @@ actual fun CameraPreview(
                 Log.d("CameraPreview", "Camera switched successfully to ${if (isFrontCamera) "front" else "back"}")
             } catch (e: Exception) {
                 Log.e("CameraPreview", "Failed to switch camera", e)
+            }
+        }
+    }
+    
+    // Update zoom level when it changes
+    LaunchedEffect(zoomLevel, camera) {
+        camera?.let { cam ->
+            try {
+                val cameraInfo = cam.cameraInfo
+                val cameraControl = cam.cameraControl
+                
+                // Get zoom range supported by the camera
+                val zoomState = cameraInfo.zoomState.value
+                val minZoom = zoomState?.minZoomRatio ?: 1f
+                val maxZoom = zoomState?.maxZoomRatio ?: 1f
+                
+                // Clamp zoom level to camera's supported range
+                val clampedZoom = zoomLevel.coerceIn(minZoom, maxZoom)
+                
+                // Apply zoom to camera
+                cameraControl.setZoomRatio(clampedZoom)
+                Log.d("CameraPreview", "Applied zoom: $clampedZoom (requested: $zoomLevel, range: $minZoom-$maxZoom)")
+            } catch (e: Exception) {
+                Log.e("CameraPreview", "Failed to set zoom", e)
             }
         }
     }
@@ -98,7 +125,7 @@ actual fun CameraPreview(
 
                 try {
                     cameraProvider?.unbindAll()
-                    cameraProvider?.bindToLifecycle(
+                    camera = cameraProvider?.bindToLifecycle(
                         lifecycleOwner,
                         cameraSelector,
                         previewUseCase

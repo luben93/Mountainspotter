@@ -6,6 +6,7 @@ import com.mountainspotter.shared.platform.CompassService
 import com.mountainspotter.shared.platform.PermissionManager
 import com.mountainspotter.shared.repository.MountainRepository
 import com.mountainspotter.shared.service.MountainCalculationService
+import com.mountainspotter.shared.service.CameraCalibrationService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -18,7 +19,8 @@ class MountainSpotterViewModel(
     private val compassService: CompassService,
     private val permissionManager: PermissionManager,
     private val mountainRepository: MountainRepository,
-    private val calculationService: MountainCalculationService
+    private val calculationService: MountainCalculationService,
+    private val calibrationService: CameraCalibrationService = CameraCalibrationService()
 ) {
     // Define a dedicated IO dispatcher for background operations
     private val ioDispatcher = Dispatchers.Default
@@ -36,6 +38,12 @@ class MountainSpotterViewModel(
     
     private val _visiblePeaks = MutableStateFlow<List<VisiblePeak>>(emptyList())
     val visiblePeaks: StateFlow<List<VisiblePeak>> = _visiblePeaks.asStateFlow()
+    
+    private val _cameraParameters = MutableStateFlow(CameraParameters())
+    val cameraParameters: StateFlow<CameraParameters> = _cameraParameters.asStateFlow()
+    
+    private val _calibrationResult = MutableStateFlow<CalibrationResult?>(null)
+    val calibrationResult: StateFlow<CalibrationResult?> = _calibrationResult.asStateFlow()
     
     init {
         checkPermissions()
@@ -130,6 +138,58 @@ class MountainSpotterViewModel(
     fun onCleared() {
         locationService.stopLocationUpdates()
         compassService.stopCompassUpdates()
+    }
+    
+    /**
+     * Triggers AI-based camera calibration
+     */
+    fun calibrateCamera(frameWidth: Int, frameHeight: Int) {
+        viewModelScope.launch {
+            try {
+                _uiState.value = _uiState.value.copy(isLoading = true)
+                
+                val result = calibrationService.calibrateCamera(
+                    visiblePeaks = _visiblePeaks.value,
+                    compassData = _compassData.value,
+                    frameWidth = frameWidth,
+                    frameHeight = frameHeight
+                )
+                
+                _calibrationResult.value = result
+                _cameraParameters.value = result.estimatedParameters
+                
+                _uiState.value = _uiState.value.copy(isLoading = false)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "Calibration failed: ${e.message}"
+                )
+            }
+        }
+    }
+    
+    /**
+     * Updates zoom level based on user input
+     */
+    fun updateZoom(zoomFactor: Float) {
+        val updatedParams = calibrationService.updateZoomLevel(_cameraParameters.value, zoomFactor)
+        _cameraParameters.value = updatedParams
+    }
+    
+    /**
+     * Updates camera translation based on user gestures
+     */
+    fun updateTranslation(deltaX: Float, deltaY: Float) {
+        val updatedParams = calibrationService.updateTranslation(_cameraParameters.value, deltaX, deltaY)
+        _cameraParameters.value = updatedParams
+    }
+    
+    /**
+     * Resets camera parameters to default values
+     */
+    fun resetCameraParameters() {
+        _cameraParameters.value = CameraParameters()
+        _calibrationResult.value = null
     }
 }
 

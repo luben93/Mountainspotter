@@ -19,6 +19,7 @@ fun App() {
     val visiblePeaks by viewModel.visiblePeaks.collectAsState(initial = emptyList())
     val compassData by viewModel.compassData.collectAsState(initial = null)
     val currentLocation by viewModel.currentLocation.collectAsState(initial = null)
+    val cameraParameters by viewModel.cameraParameters.collectAsState(initial = com.mountainspotter.shared.model.CameraParameters())
 
     // Track whether to show camera view
     var showCameraView by remember { mutableStateOf(false) }
@@ -31,12 +32,25 @@ fun App() {
                     onOpenSettings = { viewModel.openAppSettings() }
                 )
             } else if (showCameraView) {
-                // Camera View
+                // Enhanced Camera View with AI calibration
                 CameraView(
                     visiblePeaks = visiblePeaks,
                     currentLocation = currentLocation,
                     compassData = compassData,
-                    onBack = { showCameraView = false }
+                    cameraParameters = cameraParameters,
+                    onBack = { showCameraView = false },
+                    onCalibrateCamera = { width, height -> 
+                        viewModel.calibrateCamera(width, height)
+                    },
+                    onZoomGesture = { zoomFactor ->
+                        viewModel.updateZoom(zoomFactor)
+                    },
+                    onPanGesture = { deltaX, deltaY ->
+                        viewModel.updateTranslation(deltaX, deltaY)
+                    },
+                    onResetCalibration = {
+                        viewModel.resetCameraParameters()
+                    }
                 )
             } else {
                 MountainSpotterContent(

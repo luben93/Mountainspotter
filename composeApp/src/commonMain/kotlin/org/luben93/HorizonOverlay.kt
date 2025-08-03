@@ -1,6 +1,7 @@
 package org.luben93
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -9,6 +10,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -18,25 +20,35 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mountainspotter.shared.model.CompassData
 import com.mountainspotter.shared.model.VisiblePeak
+import com.mountainspotter.shared.model.CameraParameters
 import kotlin.math.*
 
 /**
  * Filter visible peaks to show only those with known elevation, not obstructed by closer peaks,
- * and within the current compass field of view
+ * and within the current camera field of view (accounting for zoom)
  */
-private fun filterVisiblePeaks(peaks: List<VisiblePeak>, currentAzimuth: Float?): List<VisiblePeak> {
+private fun filterVisiblePeaks(
+    peaks: List<VisiblePeak>, 
+    currentAzimuth: Float?, 
+    cameraParams: CameraParameters
+): List<VisiblePeak> {
     // First filter: only show peaks with known elevation (greater than 0)
     val peaksWithElevation = peaks.filter { peak ->
         peak.peak.elevation > 0.0
     }
     
-    // Second filter: only show peaks within compass field of view (90 degrees total, 45 each side)
+    // Second filter: only show peaks within camera field of view
+    // Use base field of view to determine which peaks can potentially be visible
+    val baseFOV = cameraParams.baseFOV
+    val halfBaseFOV = baseFOV / 2.0
     val peaksInView = if (currentAzimuth != null) {
         peaksWithElevation.filter { peak ->
-            val relativeBearing = (peak.bearing - currentAzimuth + 360) % 360
+            val correctedAzimuth = currentAzimuth + cameraParams.compassCorrection
+            val relativeBearing = (peak.bearing - correctedAzimuth + 360) % 360
             val signedAngle = if (relativeBearing > 180) relativeBearing - 360 else relativeBearing
-            // Show peaks within 45 degrees of current compass direction
-            kotlin.math.abs(signedAngle) <= 70.0
+            // Show peaks within the base camera field of view (allows for zoom visibility)
+            kotlin.math.abs(signedAngle) <= halfBaseFOV
+
         }
     } else {
         peaksWithElevation
@@ -65,7 +77,7 @@ private fun filterVisiblePeaks(peaks: List<VisiblePeak>, currentAzimuth: Float?)
         }
     }
     
-    // Final limit: show at most 5 peaks to avoid clutter
+    // Final limit: show at most 40 peaks to avoid clutter
     return unobstructedPeaks.take(40)
 }
 
@@ -95,27 +107,50 @@ private fun isPeakObstructedBy(farPeak: VisiblePeak, closerPeak: VisiblePeak): B
 fun HorizonOverlay(
     visiblePeaks: List<VisiblePeak>,
     compassData: CompassData?,
+    cameraParameters: CameraParameters = CameraParameters(),
+    onZoomGesture: (Float) -> Unit = {},
+    onPanGesture: (Float, Float) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val textMeasurer = rememberTextMeasurer()
     
-    Canvas(modifier = modifier) {
+    Canvas(
+        modifier = modifier.pointerInput(Unit) {
+            detectTransformGestures { _, pan, zoom, _ ->
+                // Handle zoom gestures
+                if (zoom != 1f) {
+                    onZoomGesture(zoom)
+                }
+                
+                // Handle pan gestures
+                if (pan.x != 0f || pan.y != 0f) {
+                    onPanGesture(pan.x, pan.y)
+                }
+            }
+        }
+    ) {
         compassData?.let { compass ->
-            val azimuth = compass.azimuth
+            val azimuth = compass.azimuth + cameraParameters.compassCorrection
             val halfScreenWidth = size.width / 2
+            // Use current (zoomed) field of view for drawing calculations
+            val halfFOV = cameraParameters.fieldOfView / 2f
 
-            // Draw horizon line
+            // Apply camera translation - this centers the view
+            val centerX = halfScreenWidth + cameraParameters.translationX
+            val centerY = size.height / 2 + cameraParameters.translationY
+
+            // Draw horizon line with translation applied
             drawLine(
-                color = Color.Green,
-                start = Offset(0f, size.height / 2),
-                end = Offset(size.width, size.height / 2),
-                strokeWidth = 2.dp.toPx()
+                color = if (cameraParameters.isCalibrated) Color.Green else Color.Yellow,
+                start = Offset(0f, centerY),
+                end = Offset(size.width, centerY),
+                strokeWidth = if (cameraParameters.isCalibrated) 3.dp.toPx() else 2.dp.toPx()
             )
 
             // Filter peaks to only show those with known elevation, not obstructed, and in field of view
-            val filteredPeaks = filterVisiblePeaks(visiblePeaks, azimuth)
+            val filteredPeaks = filterVisiblePeaks(visiblePeaks, azimuth, cameraParameters)
 
-            // Draw visible peaks
+            // Draw visible peaks with proper zoom-aware coordinate mapping
             filteredPeaks.forEach { peak ->
                 val peakBearing = peak.bearing
 
@@ -125,74 +160,82 @@ fun HorizonOverlay(
                 // Convert relativeBearing (0-360) to signed angle (-180 to +180)
                 val signedAngle = if (relativeBearing > 180) relativeBearing - 360 else relativeBearing
 
-                // Map signed angle to screen position for 180-degree field of view (90 degrees each side)
-                // signedAngle -90° → left edge (x = 0)
-                // signedAngle 0° → center (x = halfScreenWidth)  
-                // signedAngle +90° → right edge (x = width)
-                val peakX = (halfScreenWidth + (signedAngle / 90f) * halfScreenWidth).toFloat()
-                    .coerceIn(0f, size.width)
+                // Map signed angle to screen position using zoomed camera FOV
+                // The zoom level affects how the angular range maps to screen pixels
+                val peakX = (centerX + (signedAngle / halfFOV) * halfScreenWidth).toFloat()
 
-                // Draw peak indicator
-                if (peakX >= 0 && peakX <= size.width) {
+                // Draw peak indicator if it's within the screen bounds
+                if (peakX >= -50f && peakX <= size.width + 50f) { // Allow some margin for partially visible peaks
                     val elevationAngle = peak.elevationAngle.toFloat()
-                    // Convert elevation angle to y position
-                    // Negative elevation angle means the peak is below horizon
-                    val peakY = size.height / 2 - (elevationAngle * 10f).dp.toPx()
+                    // Convert elevation angle to y position with zoom applied
+                    val elevationScale = 10f * cameraParameters.zoomLevel
+                    val peakY = centerY - (elevationAngle * elevationScale).dp.toPx()
 
-                    // Draw peak marker
+                    // Draw peak marker with different colors based on calibration
+                    val peakColor = if (cameraParameters.isCalibrated) Color.Red else Color.Magenta
+                    val markerRadius = (5 * cameraParameters.zoomLevel).coerceAtLeast(3f).dp.toPx()
                     drawCircle(
-                        color = Color.Red,
-                        radius = 5.dp.toPx(),
+                        color = peakColor,
+                        radius = markerRadius,
                         center = Offset(peakX, peakY)
                     )
 
                     // Draw line from horizon to peak
+                    val lineWidth = (2 * cameraParameters.zoomLevel).coerceAtLeast(1f).dp.toPx()
                     drawLine(
-                        color = Color.Red,
-                        start = Offset(peakX, size.height / 2),
+                        color = peakColor,
+                        start = Offset(peakX, centerY),
                         end = Offset(peakX, peakY),
-                        strokeWidth = 2.dp.toPx()
+                        strokeWidth = lineWidth
                     )
 
-                    // Draw peak name only (simplified text to reduce clutter)
-                    val peakText = peak.peak.name
-                    val textStyle = TextStyle(
-                        color = Color.White,
-                        fontSize = 10.sp, // Reduced from 12sp
-                        fontWeight = FontWeight.Bold,
-                        background = Color.Black.copy(alpha = 0.8f) // Increased opacity for better readability
-                    )
-                    
-                    val textLayoutResult = textMeasurer.measure(peakText, textStyle)
-                    val textWidth = textLayoutResult.size.width
-                    val textHeight = textLayoutResult.size.height
-                    
-                    // Position text above the peak marker, centered horizontally
-                    val textX = (peakX - textWidth / 2f).coerceIn(0f, size.width - textWidth)
-                    val textY = (peakY - 20.dp.toPx() - textHeight).coerceAtLeast(0f)
-                    
-                    drawText(
-                        textLayoutResult = textLayoutResult,
-                        topLeft = Offset(textX, textY)
-                    )
+                    // Draw peak name with zoom-adjusted text size, only if peak is fully visible
+                    if (peakX >= 0f && peakX <= size.width) {
+                        val peakText = peak.peak.name
+                        val baseFontSize = 10.sp
+                        val adjustedFontSize = (baseFontSize.value * cameraParameters.zoomLevel).coerceAtLeast(8f).sp
+                        val textStyle = TextStyle(
+                            color = Color.White,
+                            fontSize = adjustedFontSize,
+                            fontWeight = FontWeight.Bold,
+                            background = Color.Black.copy(alpha = 0.8f)
+                        )
+                        
+                        val textLayoutResult = textMeasurer.measure(peakText, textStyle)
+                        val textWidth = textLayoutResult.size.width
+                        val textHeight = textLayoutResult.size.height
+                        
+                        // Position text above the peak marker, centered horizontally
+                        val textX = (peakX - textWidth / 2f).coerceIn(0f, size.width - textWidth)
+                        val textY = (peakY - 20.dp.toPx() - textHeight).coerceAtLeast(0f)
+                        
+                        drawText(
+                            textLayoutResult = textLayoutResult,
+                            topLeft = Offset(textX, textY)
+                        )
+                    }
                 }
             }
 
-            // Draw compass indicator
-            drawCompassIndicator(azimuth, textMeasurer)
+            // Draw compass indicator with calibration status
+            drawCompassIndicator(azimuth, textMeasurer, cameraParameters.isCalibrated)
+            
+            // Draw calibration status indicator
+            drawCalibrationStatus(cameraParameters, textMeasurer)
         }
     }
 }
 
-private fun DrawScope.drawCompassIndicator(azimuth: Float, textMeasurer: TextMeasurer) {
+private fun DrawScope.drawCompassIndicator(azimuth: Float, textMeasurer: TextMeasurer, isCalibrated: Boolean) {
     // Draw a simple compass indicator at the top
     val centerX = size.width / 2
     val centerY = 50.dp.toPx()
     val radius = 40.dp.toPx()
 
-    // Draw circle
+    // Draw circle with color indicating calibration status
+    val compassColor = if (isCalibrated) Color.Green.copy(alpha = 0.7f) else Color.Yellow.copy(alpha = 0.5f)
     drawCircle(
-        color = Color.Black.copy(alpha = 0.5f),
+        color = compassColor,
         radius = radius,
         center = Offset(centerX, centerY)
     )
@@ -247,5 +290,44 @@ private fun DrawScope.drawCompassIndicator(azimuth: Float, textMeasurer: TextMea
         path = pointerPath,
         color = Color.Red,
         style = Stroke(width = 2.dp.toPx())
+    )
+}
+
+private fun DrawScope.drawCalibrationStatus(cameraParams: CameraParameters, textMeasurer: TextMeasurer) {
+    val statusText = if (cameraParams.isCalibrated) "AI Calibrated" else "Manual Mode"
+    val zoomText = "Zoom: ${kotlin.math.round(cameraParams.zoomLevel * 10) / 10.0}x"
+    val fovText = "FOV: ${kotlin.math.round(cameraParams.fieldOfView).toInt()}°"
+
+    val statusColor = if (cameraParams.isCalibrated) Color.Green else Color.Yellow
+    
+    val textStyle = TextStyle(
+        color = Color.White,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Bold,
+        background = Color.Black.copy(alpha = 0.8f)
+    )
+    
+    val statusLayout = textMeasurer.measure(statusText, textStyle.copy(color = statusColor))
+    val zoomLayout = textMeasurer.measure(zoomText, textStyle)
+    val fovLayout = textMeasurer.measure(fovText, textStyle)
+    
+    // Position status info in top right corner
+    val rightMargin = size.width - 16.dp.toPx()
+    val topMargin = 16.dp.toPx()
+    val lineHeight = 20.dp.toPx()
+    
+    drawText(
+        textLayoutResult = statusLayout,
+        topLeft = Offset(rightMargin - statusLayout.size.width, topMargin)
+    )
+    
+    drawText(
+        textLayoutResult = zoomLayout,
+        topLeft = Offset(rightMargin - zoomLayout.size.width, topMargin + lineHeight)
+    )
+    
+    drawText(
+        textLayoutResult = fovLayout,
+        topLeft = Offset(rightMargin - fovLayout.size.width, topMargin + lineHeight * 2)
     )
 }
