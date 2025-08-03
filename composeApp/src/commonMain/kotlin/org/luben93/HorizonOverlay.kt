@@ -48,6 +48,7 @@ private fun filterVisiblePeaks(
             val signedAngle = if (relativeBearing > 180) relativeBearing - 360 else relativeBearing
             // Show peaks within the base camera field of view (allows for zoom visibility)
             kotlin.math.abs(signedAngle) <= halfBaseFOV
+
         }
     } else {
         peaksWithElevation

@@ -39,6 +39,7 @@ kotlin {
             implementation(libs.camerax.camera2)
             implementation(libs.camerax.lifecycle)
             implementation(libs.camerax.view)
+            implementation(libs.ktor.client.android) // Android-specific Ktor client
         }
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -64,8 +65,9 @@ kotlin {
             iosX64Main.dependsOn(this)
             iosArm64Main.dependsOn(this)
             iosSimulatorArm64Main.dependsOn(this)
-// To include resources from the shared module in iosMain, add the shared resources directory:
-            resources.srcDir(project(":shared").projectDir.resolve("src/commonMain/resources"))
+            dependencies {
+                implementation(libs.ktor.client.darwin) // iOS-specific Ktor client
+            }
         }
 
         commonTest.dependencies {
@@ -103,4 +105,9 @@ android {
 
 dependencies {
     debugImplementation(compose.uiTooling)
+}
+
+// Configure resource handling to avoid duplicates
+tasks.withType<Copy> {
+    duplicatesStrategy = DuplicatesStrategy.WARN
 }
