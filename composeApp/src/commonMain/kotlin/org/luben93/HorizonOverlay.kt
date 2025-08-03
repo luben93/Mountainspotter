@@ -287,9 +287,9 @@ private fun DrawScope.drawCompassIndicator(azimuth: Float, textMeasurer: TextMea
 
 private fun DrawScope.drawCalibrationStatus(cameraParams: CameraParameters, textMeasurer: TextMeasurer) {
     val statusText = if (cameraParams.isCalibrated) "AI Calibrated" else "Manual Mode"
-    val zoomText = "Zoom: ${String.format("%.1f", cameraParams.zoomLevel)}x"
-    val fovText = "FOV: ${String.format("%.0f", cameraParams.fieldOfView)}°"
-    
+    val zoomText = "Zoom: ${kotlin.math.round(cameraParams.zoomLevel * 10) / 10.0}x"
+    val fovText = "FOV: ${kotlin.math.round(cameraParams.fieldOfView).toInt()}°"
+
     val statusColor = if (cameraParams.isCalibrated) Color.Green else Color.Yellow
     
     val textStyle = TextStyle(
