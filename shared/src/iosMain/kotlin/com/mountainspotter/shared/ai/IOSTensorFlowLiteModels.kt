@@ -40,13 +40,14 @@ class IOSTensorFlowLiteModel : TensorFlowLiteModelInterface {
         try {
             val model = this@IOSTensorFlowLiteModel.model ?: return@withContext null
             
-            // Create MLMultiArray from input data using factory method
+            // Create MLMultiArray from input data using proper CoreML constructor
             val shape = listOf(NSNumber(1), NSNumber(inputData.size))
-            val inputArray = MLMultiArray.arrayWithShape(
-                shape,
-                MLMultiArrayDataTypeFloat32,
-                null
-            ) ?: return@withContext null
+            val inputArray = try {
+                MLMultiArray(shape, MLMultiArrayDataTypeFloat32, null)
+            } catch (e: Exception) {
+                println("Failed to create MLMultiArray: ${e.message}")
+                return@withContext null
+            }
             
             for (i in inputData.indices) {
                 val indices = listOf(NSNumber(0), NSNumber(i))
