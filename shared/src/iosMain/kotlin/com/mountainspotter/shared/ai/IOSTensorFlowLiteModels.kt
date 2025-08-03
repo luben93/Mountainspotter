@@ -40,9 +40,9 @@ class IOSTensorFlowLiteModel : TensorFlowLiteModelInterface {
         try {
             val model = this@IOSTensorFlowLiteModel.model ?: return@withContext null
             
-            // Create MLMultiArray from input data
+            // Create MLMultiArray from input data using factory method
             val shape = listOf(NSNumber(1), NSNumber(inputData.size))
-            val inputArray = MLMultiArray(
+            val inputArray = MLMultiArray.arrayWithShape(
                 shape,
                 MLMultiArrayDataTypeFloat32,
                 null
