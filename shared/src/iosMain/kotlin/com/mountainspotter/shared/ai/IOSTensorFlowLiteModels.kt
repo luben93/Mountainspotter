@@ -19,16 +19,16 @@ class IOSTensorFlowLiteModel : TensorFlowLiteModelInterface {
     override suspend fun loadModel(modelPath: String): Boolean = withContext(Dispatchers.Main) {
         try {
             val bundle = NSBundle.mainBundle
-            val modelURL = bundle.URLForResource(modelPath.removeSuffix(".mlmodel"), "mlmodel")
+            val modelName = modelPath.removeSuffix(".mlmodel")
+            val modelURL = bundle.URLForResource(modelName, "mlmodel")
             
-            if (modelURL != null) {
-                model = MLModel.modelWithContentsOfURL(modelURL, null)
-                model != null
-            } else {
-                false
-            }
+            modelURL?.let { url ->
+                val loadedModel = MLModel.modelWithContentsOfURL(url, null)
+                model = loadedModel
+                loadedModel != null
+            } ?: false
         } catch (e: Exception) {
-            e.printStackTrace()
+            println("Failed to load CoreML model: ${e.message}")
             false
         }
     }
@@ -38,37 +38,35 @@ class IOSTensorFlowLiteModel : TensorFlowLiteModelInterface {
             val model = this@IOSTensorFlowLiteModel.model ?: return@withContext null
             
             // Create MLMultiArray from input data
+            val shape = listOf(NSNumber(1), NSNumber(inputData.size))
             val inputArray = MLMultiArray.arrayWithShape(
-                listOf(NSNumber(1), NSNumber(inputData.size)),
+                shape,
                 MLMultiArrayDataType.MLMultiArrayDataTypeFloat32,
+                null
+            ) ?: return@withContext null
+            
+            for (i in inputData.indices) {
+                val indices = listOf(NSNumber(0), NSNumber(i))
+                inputArray.setObject(NSNumber(inputData[i]), indices)
+            }
+            
+            // Create feature provider with proper protocol implementation
+            val featureProvider = MLDictionaryFeatureProvider(
+                mapOf("input" to MLFeatureValue.featureValueWithMultiArray(inputArray)),
                 null
             )
             
-            for (i in inputData.indices) {
-                inputArray.setObject(NSNumber(inputData[i]), listOf(NSNumber(0), NSNumber(i)))
-            }
-            
-            // Create feature provider
-            val featureProvider = object : MLFeatureProvider {
-                override fun featureValueForName(featureName: String): MLFeatureValue? {
-                    return if (featureName == "input") {
-                        MLFeatureValue.featureValueWithMultiArray(inputArray)
-                    } else null
-                }
-                
-                override fun featureNames(): Set<*> = setOf("input")
-            }
-            
-            // Run prediction
+            // Run prediction with proper error handling
             val output = model.predictionFromFeatures(featureProvider, null)
             val outputFeature = output?.featureValueForName("output")
             val outputArray = outputFeature?.multiArrayValue
             
-            // Convert output to FloatArray
+            // Convert output to FloatArray with safe access
             outputArray?.let { array ->
                 val size = array.count.toInt()
                 FloatArray(size) { i ->
-                    array.objectAtIndexedSubscript(i).floatValue
+                    val nsNumber = array.objectAtIndexedSubscript(i.toLong()) as? NSNumber
+                    nsNumber?.floatValue ?: 0f
                 }
             }
         } catch (e: Exception) {
