@@ -68,7 +68,7 @@ kotlin {
             iosSimulatorArm64Main.dependsOn(this)
 
             dependencies {
-                implementation("io.ktor:ktor-client-darwin:2.3.6")
+                implementation(libs.ktor.client.darwin)
             }
         }
     }

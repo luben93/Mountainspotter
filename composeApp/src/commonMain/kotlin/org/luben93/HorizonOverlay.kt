@@ -36,7 +36,7 @@ private fun filterVisiblePeaks(peaks: List<VisiblePeak>, currentAzimuth: Float?)
             val relativeBearing = (peak.bearing - currentAzimuth + 360) % 360
             val signedAngle = if (relativeBearing > 180) relativeBearing - 360 else relativeBearing
             // Show peaks within 45 degrees of current compass direction
-            kotlin.math.abs(signedAngle) <= 45.0
+            kotlin.math.abs(signedAngle) <= 70.0
         }
     } else {
         peaksWithElevation

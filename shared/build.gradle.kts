@@ -40,33 +40,37 @@ kotlin {
                 implementation(compose.components.resources)
                 
                 // Coroutines
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+                implementation(libs.kotlinx.coroutines.core)
                 
                 // Serialization
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
+                implementation(libs.kotlinx.serialization.json)
                 
                 // Networking
-                implementation("io.ktor:ktor-client-core:2.3.6")
-                implementation("io.ktor:ktor-client-content-negotiation:2.3.6")
-                implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.6")
+                implementation(libs.ktor.ktor.client.core)
+                implementation(libs.ktor.client.content.negotiation)
+                implementation(libs.ktor.serialization.kotlinx.json)
                 
                 // Math/calculations
-                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.5.0")
+                implementation(libs.kotlinx.datetime)
             }
         }
         val commonTest by getting {
             dependencies {
                 implementation(kotlin("test"))
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+                implementation(libs.kotlinx.coroutines.core)
+                // Add the missing coroutines test dependency
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
             }
         }
         val androidMain by getting {
             dependencies {
-                implementation("io.ktor:ktor-client-okhttp:2.3.6")
-                implementation("androidx.core:core-ktx:1.12.0")
-                implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
+                implementation(libs.ktor.client.android)
+                implementation(libs.androidx.core.ktx)
+                implementation(libs.androidx.lifecycle.viewmodel)
+                implementation(compose.preview)
+                
+                // Location services 
                 implementation("com.google.android.gms:play-services-location:21.0.1")
-                implementation("androidx.compose.ui:ui-tooling-preview:1.5.4")
             }
         }
         val iosX64Main by getting
@@ -78,7 +82,7 @@ kotlin {
             iosArm64Main.dependsOn(this)
             iosSimulatorArm64Main.dependsOn(this)
             dependencies {
-                implementation("io.ktor:ktor-client-darwin:2.3.6")
+                implementation(libs.ktor.client.darwin)
             }
         }
     }
@@ -96,4 +100,9 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+}
+
+// Configure resource handling to avoid duplicates
+tasks.withType<Copy> {
+    duplicatesStrategy = DuplicatesStrategy.WARN
 }
