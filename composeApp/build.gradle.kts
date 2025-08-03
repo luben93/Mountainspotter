@@ -106,3 +106,8 @@ android {
 dependencies {
     debugImplementation(compose.uiTooling)
 }
+
+// Configure resource handling to avoid duplicates
+tasks.withType<Copy> {
+    duplicatesStrategy = DuplicatesStrategy.WARN
+}

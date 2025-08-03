@@ -58,6 +58,8 @@ kotlin {
             dependencies {
                 implementation(kotlin("test"))
                 implementation(libs.kotlinx.coroutines.core)
+                // Add the missing coroutines test dependency
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
             }
         }
         val androidMain by getting {
@@ -98,4 +100,9 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+}
+
+// Configure resource handling to avoid duplicates
+tasks.withType<Copy> {
+    duplicatesStrategy = DuplicatesStrategy.WARN
 }
