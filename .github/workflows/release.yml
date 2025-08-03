@@ -166,9 +166,9 @@ jobs:
         echo "APK renamed to include version: $SIGNED_APK_PATH"
         
     - name: Create Release
-      uses: ncipollo/create-release@v1.13.0
+      uses: softprops/action-gh-release@v2.3.2
       with:
-        tag: ${{ steps.version.outputs.version }}
+        tag_name: ${{ steps.version.outputs.version }}
         name: Mountain Spotter ${{ steps.version.outputs.version }}
         body: |
           ## Mountain Spotter Release ${{ steps.version.outputs.version }}
@@ -188,7 +188,7 @@ jobs:
           **Commit:** ${{ github.sha }}
           **Author:** ${{ github.event.head_commit.author.name }}
           **Message:** ${{ github.event.head_commit.message }}
-        artifacts: "composeApp/build/outputs/apk/release/mountainspotter-${{ steps.version.outputs.version }}.apk"
+        files: "composeApp/build/outputs/apk/release/mountainspotter-${{ steps.version.outputs.version }}.apk"
         token: ${{ secrets.GITHUB_TOKEN }}
         draft: false
         prerelease: false
