@@ -1,5 +1,6 @@
 package com.mountainspotter.shared.ai
 
+import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import platform.CoreML.*
@@ -12,6 +13,8 @@ import kotlin.math.*
 /**
  * iOS-specific CoreML model implementation
  */
+@OptIn(ExperimentalForeignApi::class)
+
 class IOSTensorFlowLiteModel : TensorFlowLiteModelInterface {
     
     private var model: MLModel? = null
