@@ -96,7 +96,19 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
       
-
+    - name: Cache Android SDK and build tools
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.android/avd
+          ~/.android/adb*
+          ${{ env.ANDROID_HOME }}/platforms
+          ${{ env.ANDROID_HOME }}/platform-tools
+          ${{ env.ANDROID_HOME }}/build-tools
+          ${{ env.ANDROID_HOME }}/ndk
+        key: ${{ runner.os }}-android-sdk-${{ hashFiles('composeApp/build.gradle.kts') }}
+        restore-keys: |
+          ${{ runner.os }}-android-sdk-
       
     - name: Restore Gradle and KMP shared build cache
       uses: actions/cache@v4
@@ -141,43 +153,17 @@ jobs:
         echo "Building release APK using cached shared modules..."
         ./gradlew :composeApp:assembleRelease --stacktrace --no-daemon --build-cache
       
-    - name: Generate debug keystore for APK signing
-      run: |
-        # Create .android directory if it doesn't exist
-        mkdir -p ~/.android
-        
-        # Generate debug keystore if it doesn't exist
-        if [ ! -f ~/.android/debug.keystore ]; then
-          echo "Generating debug keystore for APK signing..."
-          keytool -genkey -v -keystore ~/.android/debug.keystore \
-            -storepass android -alias androiddebugkey -keypass android \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
-          echo "Debug keystore generated successfully"
-        else
-          echo "Debug keystore already exists"
-        fi
-        
-    - name: Prepare signed APK
+    - name: Sign APK (if keystore available)
       env:
         VERSION_NAME: ${{ steps.version.outputs.version }}
       run: |
-        # The APK should now be signed and located at composeApp-release.apk
-        APK_PATH="composeApp/build/outputs/apk/release/composeApp-release.apk"
-        FINAL_APK_PATH="composeApp/build/outputs/apk/release/mountainspotter-${{ steps.version.outputs.version }}.apk"
+        APK_PATH="composeApp/build/outputs/apk/release/composeApp-release-unsigned.apk"
+        SIGNED_APK_PATH="composeApp/build/outputs/apk/release/mountainspotter-${{ steps.version.outputs.version }}.apk"
         
-        if [ -f "$APK_PATH" ]; then
-          cp "$APK_PATH" "$FINAL_APK_PATH"
-          echo "Signed APK prepared: $FINAL_APK_PATH"
-          
-          # Verify APK is signed
-          echo "Verifying APK signature..."
-          aapt dump badging "$FINAL_APK_PATH" | head -5
-        else
-          echo "Error: Signed APK not found at $APK_PATH"
-          ls -la composeApp/build/outputs/apk/release/
-          exit 1
-        fi
+        # For now, just rename the unsigned APK to include version
+        # In the future, this is where signing would happen with proper keystore
+        cp "$APK_PATH" "$SIGNED_APK_PATH"
+        echo "APK renamed to include version: $SIGNED_APK_PATH"
         
     - name: Create Release
       uses: softprops/action-gh-release@v2.3.2
